@@ -95,6 +95,39 @@
     }
 ⬆️ 해당 날짜에 일정을 셀에 나타내는 코드
 
+    private func fetchAndCombineData() {
+        let checkListFetch: NSFetchRequest<CheckList> = CheckList.fetchRequest()
+        let memoFetch: NSFetchRequest<Memo> = Memo.fetchRequest()
+        
+        do {
+            let checkListItems = try context.fetch(checkListFetch)
+            let memoItems = try context.fetch(memoFetch)
+            combinedItems = [:]
+            
+            for item in checkListItems {
+                let key = item.title ?? "Untitled"
+                if combinedItems[key] == nil {
+                    combinedItems[key] = []
+                }
+                combinedItems[key]?.append(item)
+            }
+            
+            for item in memoItems {
+                let key = item.title ?? "Untitled"
+                if combinedItems[key] == nil {
+                    combinedItems[key] = []
+                }
+                combinedItems[key]?.append(item)
+            }
+            
+            combinedItemTitles = Array(combinedItems.keys).sorted()
+            tableView.reloadData()
+        } catch {
+            
+        }
+    }
+⬆️ 서로 다른 Entity의 데이터를 하나로 합쳐 테이블뷰 데이터소스로 사용하여 메모를 표현
+
 ## 🔍앱의 주요기능
 - 사용자의 일정을 추가하여 달력에 표시
 - 달력에 나타나는 일정의 색깔을 사용자가 커스텀 가능
