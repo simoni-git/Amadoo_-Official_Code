@@ -105,7 +105,7 @@ class DetailDutyVC: UIViewController {
         nextVC.modalPresentationStyle = .pageSheet
         nextVC.todayMounth = self.selectedDate
         nextVC.todayMounthString = monthYearString
-        
+        nextVC.selectedSingleDate = selectedDate
         present(nextVC, animated: true)
     }
     
@@ -130,6 +130,11 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
         if let title = events[indexPath.row].value(forKey: "title") as? String {
             cell.titleLabel.text = title
         }
+        
+        if let colorHex = events[indexPath.row].value(forKey: "categoryColor") as? String {
+            cell.backgroundColor = UIColor(hex: colorHex)
+        }
+        
         cell.selectionStyle = .none
         return cell
     }

@@ -18,8 +18,6 @@ class CalendarVC: UIViewController {
     }
     
     @IBOutlet weak var dateLabel: UILabel!
-    @IBOutlet weak var leftMonthBtn: UIButton!
-    @IBOutlet weak var ritghtMonthBtn: UIButton!
     @IBOutlet weak var todayBtn: UIButton!
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
@@ -40,8 +38,33 @@ class CalendarVC: UIViewController {
         configure()
         addDefaultCategoryIfNeeded()
         fetchSavedEvents()
+        
+        let leftSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
+        leftSwipe.direction = .left
+        collectionView.addGestureRecognizer(leftSwipe)
+        
+        let rightSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
+        rightSwipe.direction = .right
+        collectionView.addGestureRecognizer(rightSwipe)
+        
         NotificationCenter.default.addObserver(self, selector: #selector(reloadCalendar), name: NSNotification.Name("ScheduleSaved"), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(eventDeleted), name: NSNotification.Name("EventDeleted"), object: nil)
+    }
+    
+    @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        if gesture.direction == .left {
+            currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth)!
+        } else if gesture.direction == .right {
+            currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth)!
+        }
+        collectionView.reloadData()
+        updateMonthLabel()
+
+        let transition = CATransition()
+        transition.type = .push
+        transition.subtype = gesture.direction == .left ? .fromRight : .fromLeft
+        transition.duration = 0.1
+        collectionView.layer.add(transition, forKey: nil)
     }
     
     private func configure() {
@@ -192,19 +215,6 @@ class CalendarVC: UIViewController {
             return false
         }
     }
-    
-    @IBAction func tapLeftMonthBtn(_ sender: UIButton) {
-        currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth)!
-        collectionView.reloadData()
-        updateMonthLabel()
-    }
-    
-    @IBAction func tapRightMonthBtn(_ sender: UIButton) {
-        currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth)!
-        collectionView.reloadData()
-        updateMonthLabel()
-    }
-    
     
     @IBAction func tapTodayBtn(_ sender: UIButton) {
         currentMonth = Date()
