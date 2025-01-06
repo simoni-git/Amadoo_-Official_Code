@@ -12,6 +12,10 @@ protocol EditCategoryVCDelegate: AnyObject {
     func didUpdateCategory()
 }
 
+protocol AddForSelectCategoryVCDelegate: AnyObject {
+    func updateCategory()
+}
+
 class EditCategoryVC: UIViewController {
     
     var context: NSManagedObjectContext {
@@ -36,12 +40,14 @@ class EditCategoryVC: UIViewController {
     @IBOutlet weak var colorBtn8: UIButton!
     
     var delegate: EditCategoryVCDelegate?
+    var addForSelectCategoryVCDelegate: AddForSelectCategoryVCDelegate?
     var selectColor: String? = ""
     var selectColorLabel: String?
     var categoryName: String? = ""
     var originCategoryName: String?
     var originSelectColor: String?
     var isEditMode: Bool = false
+    var isAddMode: Bool = false
     var colorButtons: [UIButton] = []
     
     override func viewDidLoad() {
@@ -207,7 +213,7 @@ class EditCategoryVC: UIViewController {
         
         fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             NSPredicate(format: "name == %@", categoryName),
-            NSPredicate(format: "name != %@", originCategoryName ?? "") // 기존 이름과 다를 경우만
+            NSPredicate(format: "name != %@", originCategoryName ?? "")
         ])
         
         do {
@@ -253,8 +259,25 @@ class EditCategoryVC: UIViewController {
             return
         }
         
-        guard let selectColor = self.selectColor else {
+        guard let selectColor = self.selectColor, !selectColor.isEmpty else {
             popUpWarning("색상을 선택해 주세요")
+            return
+        }
+        
+        if isAddMode == true {
+            if isCategoryNameExists(categoryName: categoryName) {
+                popUpWarning("이미 사용 중인 카테고리 이름입니다")
+                return
+            }
+            
+            if isColorExists(selectColor: selectColor) {
+                popUpWarning("이미 사용 중인 색상입니다")
+                return
+            }
+            
+            saveCategory(categoryName: categoryName, selectColor: selectColor)
+            addForSelectCategoryVCDelegate?.updateCategory()
+            dismiss(animated: true)
             return
         }
         
@@ -303,6 +326,7 @@ class EditCategoryVC: UIViewController {
             }
             
         } else {
+            
             if isCategoryNameExists(categoryName: categoryName) {
                 popUpWarning("이미 사용 중인 카테고리 이름입니다")
                 return

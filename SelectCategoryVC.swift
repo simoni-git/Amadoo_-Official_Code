@@ -50,9 +50,11 @@ class SelectCategoryVC: UIViewController, EditCategoryVCDelegate {
         present(warningVC, animated: true)
     }
     
-    @IBAction func tapExClamationMarkBtn(_ sender: UIButton) {
-        popUpWarning("편집창에서 원하는 카테고리 이름과 색상을 선택하실 수 있습니다")
-        
+    @IBAction func tapAddCategoryBtn(_ sender: UIButton) {
+        guard let nextVC = self.storyboard?.instantiateViewController(withIdentifier: "EditCategoryVC") as? EditCategoryVC else {return}
+        nextVC.addForSelectCategoryVCDelegate = self
+        nextVC.isAddMode = true
+        present(nextVC, animated: true)
     }
     
 }
@@ -87,6 +89,14 @@ extension SelectCategoryVC: UITableViewDelegate , UITableViewDataSource {
         delegate?.didSelectCategoryColor(colorCode)
         delegate?.didSelectCategoryName(categoryName)
         dismiss(animated: true, completion: nil)
+    }
+    
+}
+
+//MARK: - Delegate관련
+extension SelectCategoryVC: AddForSelectCategoryVCDelegate {
+    func updateCategory() {
+        fetchCategories()
     }
     
 }
