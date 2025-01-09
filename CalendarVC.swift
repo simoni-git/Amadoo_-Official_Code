@@ -10,34 +10,25 @@ import CoreData
 
 class CalendarVC: UIViewController {
     
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
+    var vm = CalendarVM()
     @IBOutlet weak var dateLabel: UILabel!
     @IBOutlet weak var todayBtn: UIButton!
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
-    
-    private var currentMonth: Date = Date()
-    private var savedEvents: [NSManagedObject] = []
-    
-    enum ButtonType: String {
-        case defaultDay = "defaultDay"
-        case periodDay = "periodDay"
-        case multipleDay = "multipleDay"
-    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.dataSource = self
         collectionView.delegate = self
         configure()
-        addDefaultCategoryIfNeeded()
-        fetchSavedEvents()
+    }
+    
+    private func configure() {
+        todayBtn.layer.cornerRadius = 10
+        collectionView.layer.cornerRadius = 10
+        updateMonthLabel()
+        vm.addDefaultCategory()
+        vm.fetchSavedEvents()
         
         let leftSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
         leftSwipe.direction = .left
@@ -51,116 +42,6 @@ class CalendarVC: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(eventDeleted), name: NSNotification.Name("EventDeleted"), object: nil)
     }
     
-    @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
-        if gesture.direction == .left {
-            currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth)!
-        } else if gesture.direction == .right {
-            currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth)!
-        }
-        collectionView.reloadData()
-        updateMonthLabel()
-
-        let transition = CATransition()
-        transition.type = .push
-        transition.subtype = gesture.direction == .left ? .fromRight : .fromLeft
-        transition.duration = 0.1
-        collectionView.layer.add(transition, forKey: nil)
-    }
-    
-    private func configure() {
-        todayBtn.layer.cornerRadius = 10
-        collectionView.layer.cornerRadius = 10
-        updateMonthLabel()
-    }
-    
-    private func addDefaultCategoryIfNeeded() {
-        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Category")
-        request.predicate = NSPredicate(format: "isDefault == true")
-        
-        do {
-            let result = try context.fetch(request)
-            if result.isEmpty {
-                let entity = NSEntityDescription.entity(forEntityName: "Category", in: context)!
-                let defaultCategory = NSManagedObject(entity: entity, insertInto: context)
-                defaultCategory.setValue("할 일", forKey: "name")
-                defaultCategory.setValue("#808080", forKey: "color") // 회색
-                defaultCategory.setValue(true, forKey: "isDefault")
-                
-                try context.save()
-                
-            }
-        } catch {
-            
-        }
-    }
-    
-    private func colorFromCoreData(_ colorString: String) -> UIColor {
-        let components = colorString.split(separator: ",").compactMap { CGFloat(Double($0) ?? 0) }
-        guard components.count == 3 else { return UIColor.systemGray } // 기본 색상
-        return UIColor(red: components[0] / 255.0, green: components[1] / 255.0, blue: components[2] / 255.0, alpha: 1.0)
-    }
-    
-    private func getEventsForDate(_ date: Date) -> [(title: String, color: UIColor, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)] {
-        var events: [(title: String, color: UIColor, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)] = []
-        var addedEventTitles: Set<String> = []
-        var eventLevels: [Int: String] = [:]
-        
-        let maxLevels = 4
-        
-        for event in savedEvents {
-            guard let eventDate = event.value(forKey: "date") as? Date,
-                  let title = event.value(forKey: "title") as? String,
-                  let buttonType = event.value(forKey: "buttonType") as? String,
-                  let startDay = event.value(forKey: "startDay") as? Date,
-                  let endDay = event.value(forKey: "endDay") as? Date,
-                  let colorString = event.value(forKey: "categoryColor") as? String else { continue }
-            
-            let color: UIColor = UIColor(hex: colorString)
-            let isPeriod = (buttonType == ButtonType.periodDay.rawValue)
-            
-            if addedEventTitles.contains(title + startDay.description) {
-                continue
-            }
-            
-            var assignedLevel: Int = -1
-            
-            if isPeriod {
-                if date >= startDay && date <= endDay {
-                    for level in 0..<maxLevels {
-                        if eventLevels[level] == nil {
-                            assignedLevel = level
-                            eventLevels[level] = title
-                            break
-                        }
-                    }
-                    guard assignedLevel != -1 else { continue }
-                    
-                    let isStart = (date == startDay)
-                    let isEnd = (date == endDay)
-                    events.append((title: title, color: color, isPeriod: true, isStart: isStart, isEnd: isEnd, startDate: startDay, endDate: endDay))
-                    addedEventTitles.insert(title + startDay.description)
-                }
-            } else {
-                if Calendar.current.isDate(eventDate, inSameDayAs: date) {
-                    for level in 0..<maxLevels {
-                        if eventLevels[level] == nil {
-                            assignedLevel = level
-                            eventLevels[level] = title
-                            break
-                        }
-                    }
-                    guard assignedLevel != -1 else { continue }
-                    
-                    events.append((title: title, color: color, isPeriod: false, isStart: true, isEnd: true, startDate: eventDate, endDate: eventDate))
-                    addedEventTitles.insert(title + startDay.description)
-                }
-            }
-        }
-        
-        return events
-    }
-    
     private func refreshCalendar() {
         DateCell.occupiedIndexesByDate.removeAll()
         collectionView.reloadData()
@@ -169,67 +50,40 @@ class CalendarVC: UIViewController {
     private func updateMonthLabel() {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy년 MM월"
-        dateLabel.text = dateFormatter.string(from: currentMonth)
+        dateLabel.text = dateFormatter.string(from: vm.currentMonth)
         collectionView.reloadData()
-    }
-    
-    private func fetchSavedEvents() {
-        let request = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
-        
-        do {
-            savedEvents = try context.fetch(request)
-        } catch  {
-            
-        }
-    }
-    
-    private func hasEvent(for date: Date) -> Bool {
-        return savedEvents.contains { event in
-            if let eventDate = event.value(forKey: "date") as? Date {
-                return Calendar.current.isDate(eventDate, inSameDayAs: date)
-            }
-            return false
-        }
-    }
-    
-    private func isStartDate(for date: Date) -> Bool {
-        let previousDate = Calendar.current.date(byAdding: .day, value: -1, to: date)!
-        return !savedEvents.contains { event in
-            if let eventDate = event.value(forKey: "date") as? Date,
-               Calendar.current.isDate(eventDate, inSameDayAs: previousDate) {
-                let buttonType = event.value(forKey: "buttonType") as? String
-                return buttonType == ButtonType.periodDay.rawValue
-            }
-            return false
-        }
-    }
-    
-    private func isEndDate(for date: Date) -> Bool {
-        let nextDate = Calendar.current.date(byAdding: .day, value: 1, to: date)!
-        return !savedEvents.contains { event in
-            if let eventDate = event.value(forKey: "date") as? Date,
-               Calendar.current.isDate(eventDate, inSameDayAs: nextDate) {
-                let buttonType = event.value(forKey: "buttonType") as? String
-                return buttonType == ButtonType.periodDay.rawValue
-            }
-            return false
-        }
     }
     
     @IBAction func tapTodayBtn(_ sender: UIButton) {
-        currentMonth = Date()
+        vm.currentMonth = Date()
         collectionView.reloadData()
         updateMonthLabel()
     }
+    //MARK: - @objc-Code
+    @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        if gesture.direction == .left {
+            vm.currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: vm.currentMonth)!
+        } else if gesture.direction == .right {
+            vm.currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: vm.currentMonth)!
+        }
+        collectionView.reloadData()
+        updateMonthLabel()
+        
+        let transition = CATransition()
+        transition.type = .push
+        transition.subtype = gesture.direction == .left ? .fromRight : .fromLeft
+        transition.duration = 0.1
+        collectionView.layer.add(transition, forKey: nil)
+    }
     
     @objc private func reloadCalendar() {
-        fetchSavedEvents()
+        vm.fetchSavedEvents()
         collectionView.reloadData()
         refreshCalendar()
     }
     
     @objc func eventDeleted() {
-        fetchSavedEvents()
+        vm.fetchSavedEvents()
         collectionView.reloadData()
         refreshCalendar()
     }
@@ -251,7 +105,7 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "DateCell", for: indexPath) as? DateCell else {
             return UICollectionViewCell()
         }
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: currentMonth))!
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
         let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
         
         let daysOffset = indexPath.item - firstWeekday
@@ -259,7 +113,7 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         let dayNumber = Calendar.current.component(.day, from: day)
         
         cell.dateLabel.text = "\(dayNumber)"
-        let isCurrentMonth = Calendar.current.isDate(day, equalTo: currentMonth, toGranularity: .month)
+        let isCurrentMonth = Calendar.current.isDate(day, equalTo: vm.currentMonth, toGranularity: .month)
         cell.dateLabel.alpha = isCurrentMonth ? 1.0 : 0.3
         
         if [0, 7, 14, 21, 28].contains(indexPath.item) {
@@ -270,25 +124,21 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
             cell.dateLabel.textColor = .black
         }
         
-        DispatchQueue.main.async {
-            cell.dateLabel.backgroundColor = .clear
-            cell.dateLabel.layer.cornerRadius = 8
-            cell.dateLabel.layer.masksToBounds = false
-        }
+        cell.dateLabel.backgroundColor = .clear
+        cell.dateLabel.layer.cornerRadius = 8
+        cell.dateLabel.layer.masksToBounds = false
         
         let today = Calendar.current.startOfDay(for: Date())
         let cellDate = Calendar.current.startOfDay(for: day)
         if today == cellDate {
-            DispatchQueue.main.async {
-                cell.dateLabel.backgroundColor = UIColor(hex: "E6DFF1")
-                cell.dateLabel.layer.cornerRadius = 5
-                cell.dateLabel.layer.masksToBounds = true
-            }
+            cell.dateLabel.backgroundColor = UIColor(hex: "E6DFF1")
+            cell.dateLabel.layer.cornerRadius = 5
+            cell.dateLabel.layer.masksToBounds = true
         } else {
             
         }
         
-        let dayEvents = getEventsForDate(day)
+        let dayEvents = vm.getEventsForDate(day)
         cell.configure(with: dayEvents, for: day)
         
         return cell
@@ -320,7 +170,7 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: currentMonth))!
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
         let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
         
         let daysOffset = indexPath.item - firstWeekday
@@ -354,9 +204,9 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         }
         
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "DetailDutyVC") as? DetailDutyVC else { return }
-        nextVC.selecDateString = finalDateString
-        nextVC.selectedDate = selectedDate
-        nextVC.dDayString = dDayString
+        nextVC.vm.selecDateString = finalDateString
+        nextVC.vm.selectedDate = selectedDate
+        nextVC.vm.dDayString = dDayString
         present(nextVC, animated: true)
     }
     

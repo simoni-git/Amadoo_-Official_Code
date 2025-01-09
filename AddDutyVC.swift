@@ -10,13 +10,7 @@ import CoreData
 
 class AddDutyVC: UIViewController {
     
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
+    var vm = AddDutyVM()
     @IBOutlet weak var dutyTextField: UITextField!
     @IBOutlet weak var defaultDayBtn: UIButton!
     @IBOutlet weak var periodDayBtn: UIButton!
@@ -26,28 +20,8 @@ class AddDutyVC: UIViewController {
     @IBOutlet weak var rightMonthBtn: UIButton!
     @IBOutlet weak var registerBtn: UIButton!
     @IBOutlet weak var categoryBtn: UIButton!
-    
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
-    
-    private var currentMonth: Date = Date()
-    private var selectedButtonType: ButtonType = .defaultDay
-    private var selectedStartDate: Date?
-    private var selectedEndDate: Date?
-    private var selectedMultipleDates: [Date] = []
-    private var selectedSingleDate: Date?
-    
-    var todayMounth: Date?
-    var todayMounthString: String?
-    
-    var selectedCategoryColorHex: String?
-    var selectedCategoryColorName: String?
-    
-    enum ButtonType: String {
-        case defaultDay = "defaultDay"
-        case periodDay = "periodDay"
-        case multipleDay = "multipleDay"
-    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -56,18 +30,6 @@ class AddDutyVC: UIViewController {
         dutyTextField.delegate = self
         collectionView.collectionViewLayout.invalidateLayout()
         configure()
-        updateButtonStyles()
-        if let date = todayMounthString {
-            dateLabel.text = date
-        }
-        
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        tapGesture.cancelsTouchesInView = false
-        view.addGestureRecognizer(tapGesture)
-    }
-    
-    @objc private func dismissKeyboard() {
-        view.endEditing(true)
     }
     
     private func configure() {
@@ -76,21 +38,28 @@ class AddDutyVC: UIViewController {
         multipleDayBtn.layer.cornerRadius = 10
         categoryBtn.layer.cornerRadius = 10
         registerBtn.layer.cornerRadius = 10
-    }
-    
-    private func updateMonthLabel() {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MM월 yyyy"
-        dateLabel.text = dateFormatter.string(from: todayMounth!)
+        updateButtonStyles()
+        
+        if let date = vm.todayMounthString {
+            dateLabel.text = date
+        }
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
     }
     
     private func updateButtonStyles() {
         let selectedColor = UIColor(hex: "FAD4D8")
         let defaultColor = UIColor(hex: "F8EDE3")
         
-        defaultDayBtn.backgroundColor = selectedButtonType == .defaultDay ? selectedColor : defaultColor
-        periodDayBtn.backgroundColor = selectedButtonType == .periodDay ? selectedColor : defaultColor
-        multipleDayBtn.backgroundColor = selectedButtonType == .multipleDay ? selectedColor : defaultColor
+        defaultDayBtn.backgroundColor = vm.selectedButtonType == .defaultDay ? selectedColor : defaultColor
+        periodDayBtn.backgroundColor = vm.selectedButtonType == .periodDay ? selectedColor : defaultColor
+        multipleDayBtn.backgroundColor = vm.selectedButtonType == .multipleDay ? selectedColor : defaultColor
+    }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
     
     private func popUpWarning(_ ment: String) {
@@ -100,44 +69,40 @@ class AddDutyVC: UIViewController {
         present(warningVC, animated: true)
     }
     
-    @IBAction func tapDefaultDayBtn(_ sender: UIButton) {
-        selectedButtonType = .defaultDay
-        selectedSingleDate = nil
-        selectedStartDate = nil
-        selectedEndDate = nil
-        selectedMultipleDates.removeAll()
+    private func updateSelectedButtonType(_ type: AddDutyVM.ButtonType) {
+        vm.selectedButtonType = type
+        vm.selectedSingleDate = nil
+        vm.selectedStartDate = nil
+        vm.selectedEndDate = nil
+        vm.selectedMultipleDates.removeAll()
         updateButtonStyles()
         collectionView.reloadData()
+    }
+    
+    private func updateMonthLabel() {
+        dateLabel.text = vm.getFormattedMonth()
+    }
+    
+    @IBAction func tapDefaultDayBtn(_ sender: UIButton) {
+        updateSelectedButtonType(.defaultDay)
     }
     
     @IBAction func tapPeriodDayBtn(_ sender: UIButton) {
-        selectedButtonType = .periodDay
-        selectedSingleDate = nil
-        selectedStartDate = nil
-        selectedEndDate = nil
-        selectedMultipleDates.removeAll()
-        updateButtonStyles()
-        collectionView.reloadData()
+        updateSelectedButtonType(.periodDay)
     }
     
     @IBAction func tapMultipleDayBtn(_ sender: UIButton) {
-        selectedButtonType = .multipleDay
-        selectedSingleDate = nil
-        selectedStartDate = nil
-        selectedEndDate = nil
-        selectedMultipleDates.removeAll()
-        updateButtonStyles()
-        collectionView.reloadData()
+        updateSelectedButtonType(.multipleDay)
     }
     
     @IBAction func tapLeftMonthBtn(_ sender: UIButton) {
-        todayMounth = Calendar.current.date(byAdding: .month, value: -1, to: todayMounth!)!
+        vm.todayMounth = Calendar.current.date(byAdding: .month, value: -1, to: vm.todayMounth!)!
         collectionView.reloadData()
         updateMonthLabel()
     }
     
     @IBAction func tapRightMonthBtn(_ sender: UIButton) {
-        todayMounth = Calendar.current.date(byAdding: .month, value: 1, to: todayMounth!)!
+        vm.todayMounth = Calendar.current.date(byAdding: .month, value: 1, to: vm.todayMounth!)!
         collectionView.reloadData()
         updateMonthLabel()
     }
@@ -164,15 +129,15 @@ class AddDutyVC: UIViewController {
             return
         }
         
-        guard let categoryColor = selectedCategoryColorHex, !categoryColor.isEmpty else {
+        guard let categoryColor = vm.selectedCategoryColorHex, !categoryColor.isEmpty else {
             popUpWarning("카테고리를 선택해 주세요")
             return
         }
         
-        switch selectedButtonType {
+        switch vm.selectedButtonType {
         case .defaultDay:
-            if let selectedDate = selectedSingleDate {
-                saveSingleDate(text: text, date: selectedDate)
+            if let selectedDate = vm.selectedSingleDate {
+                vm.saveSingleDate(text: text, date: selectedDate)
                 NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
                 self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
             } else {
@@ -181,85 +146,22 @@ class AddDutyVC: UIViewController {
             
         case .periodDay:
             print("기간타입 선택됨")
-            guard let startDate = selectedStartDate, let endDate = selectedEndDate else {
+            guard let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate else {
                 popUpWarning("기간을 정확히 선택해 주세요")
                 return
             }
-            savePeriodDates(text: text, startDate: startDate, endDate: endDate)
+            vm.savePeriodDates(text: text, startDate: startDate, endDate: endDate)
             NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
             self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
             
         case .multipleDay:
-            guard !selectedMultipleDates.isEmpty else {
+            guard !vm.selectedMultipleDates.isEmpty else {
                 popUpWarning("날짜를 선택해 주세요")
                 return
             }
-            saveMultipleDates(text: text, dates: selectedMultipleDates)
+            vm.saveMultipleDates(text: text, dates: vm.selectedMultipleDates)
             NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
             self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
-        }
-    }
-    
-    private func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        let okAction = UIAlertAction(title: "확인", style: .default, handler: { _ in
-            self.view.endEditing(true)
-        })
-        alert.addAction(okAction)
-        present(alert, animated: true, completion: nil)
-    }
-    
-    // MARK: - CoreData 저장 관련
-    private func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
-    
-    private func saveSingleDate(text: String, date: Date) {
-        let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: context)
-        let newSchedule = NSManagedObject(entity: entity!, insertInto: context)
-        newSchedule.setValue(text, forKey: "title")
-        newSchedule.setValue(date, forKey: "date")
-        newSchedule.setValue(date, forKey: "startDay")
-        newSchedule.setValue(date, forKey: "endDay")
-        newSchedule.setValue(selectedButtonType.rawValue, forKey: "buttonType")
-        
-        
-        if let colorHex = selectedCategoryColorHex {
-            newSchedule.setValue(colorHex, forKey: "categoryColor")
-        }
-        
-        saveContext()
-    }
-    
-    private func savePeriodDates(text: String, startDate: Date, endDate: Date) {
-        var currentDate = startDate
-        
-        while currentDate <= endDate {
-            let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: context)
-            let newSchedule = NSManagedObject(entity: entity!, insertInto: context)
-            newSchedule.setValue(text, forKey: "title")
-            newSchedule.setValue(currentDate, forKey: "date")
-            newSchedule.setValue(startDate, forKey: "startDay")
-            newSchedule.setValue(endDate, forKey: "endDay")
-            newSchedule.setValue(selectedButtonType.rawValue, forKey: "buttonType")
-            
-            if let colorHex = selectedCategoryColorHex {
-                newSchedule.setValue(colorHex, forKey: "categoryColor")
-            }
-            
-            currentDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
-        }
-        
-        saveContext()
-    }
-    
-    private func saveMultipleDates(text: String, dates: [Date]) {
-        for date in dates {
-            saveSingleDate(text: text, date: date)
         }
     }
     
@@ -277,33 +179,33 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
             return UICollectionViewCell()
         }
         
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: todayMounth!))!
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.todayMounth!))!
         let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
         
         let daysOffset = indexPath.item - firstWeekday
         let day = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
         let dayNumber = Calendar.current.component(.day, from: day)
-        let isCurrentMonth = Calendar.current.isDate(day, equalTo: todayMounth!, toGranularity: .month)
+        let isCurrentMonth = Calendar.current.isDate(day, equalTo: vm.todayMounth!, toGranularity: .month)
         
         cell.dateLabel.text = isCurrentMonth ? "\(dayNumber)" : nil
         cell.subView.layer.cornerRadius = CGFloat(8)
         cell.subView.backgroundColor = .clear
         
-        switch selectedButtonType {
+        switch vm.selectedButtonType {
         case .defaultDay:
-            if let selectedSingleDate = selectedSingleDate, day == selectedSingleDate {
+            if let selectedSingleDate = vm.selectedSingleDate, day == selectedSingleDate {
                 cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
             }
             
         case .multipleDay:
-            if selectedMultipleDates.contains(day) {
+            if vm.selectedMultipleDates.contains(day) {
                 cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
             }
             
         case .periodDay:
-            if let startDate = selectedStartDate, let endDate = selectedEndDate, day >= startDate && day <= endDate {
+            if let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate, day >= startDate && day <= endDate {
                 cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
-            } else if let startDate = selectedStartDate, selectedEndDate == nil, day == startDate {
+            } else if let startDate = vm.selectedStartDate, vm.selectedEndDate == nil, day == startDate {
                 cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
             }
         }
@@ -330,12 +232,12 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: todayMounth!))!
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.todayMounth!))!
         let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
         
         let daysOffset = indexPath.item - firstWeekday
         let selectedDate = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-        let isCurrentMonth = Calendar.current.isDate(selectedDate, equalTo: todayMounth!, toGranularity: .month)
+        let isCurrentMonth = Calendar.current.isDate(selectedDate, equalTo: vm.todayMounth!, toGranularity: .month)
         
         guard let cell = collectionView.cellForItem(at: indexPath) as? AddDutyDateCell,
               cell.dateLabel.text != nil,
@@ -343,31 +245,31 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
             return
         }
         
-        switch selectedButtonType {
+        switch vm.selectedButtonType {
         case .defaultDay:
-            selectedSingleDate = selectedDate
+            vm.selectedSingleDate = selectedDate
             collectionView.reloadData()
             
         case .multipleDay:
-            if let index = selectedMultipleDates.firstIndex(of: selectedDate) {
-                selectedMultipleDates.remove(at: index)
+            if let index = vm.selectedMultipleDates.firstIndex(of: selectedDate) {
+                vm.selectedMultipleDates.remove(at: index)
             } else {
-                selectedMultipleDates.append(selectedDate)
+                vm.selectedMultipleDates.append(selectedDate)
             }
             collectionView.reloadData()
             
         case .periodDay:
-            if selectedStartDate == nil {
-                selectedStartDate = selectedDate
-                selectedEndDate = nil
-            } else if selectedEndDate == nil {
-                selectedEndDate = selectedDate
-                if selectedStartDate! > selectedEndDate! {
-                    swap(&selectedStartDate, &selectedEndDate)
+            if vm.selectedStartDate == nil {
+                vm.selectedStartDate = selectedDate
+                vm.selectedEndDate = nil
+            } else if vm.selectedEndDate == nil {
+                vm.selectedEndDate = selectedDate
+                if vm.selectedStartDate! > vm.selectedEndDate! {
+                    swap(&vm.selectedStartDate, &vm.selectedEndDate)
                 }
             } else {
-                selectedStartDate = selectedDate
-                selectedEndDate = nil
+                vm.selectedStartDate = selectedDate
+                vm.selectedEndDate = nil
             }
             collectionView.reloadData()
         }
@@ -384,16 +286,16 @@ extension AddDutyVC: UITextFieldDelegate {
 
 extension AddDutyVC: SelectCategoryVCDelegate {
     func didSelectCategoryName(_ name: String) {
-        DispatchQueue.main.async {
-            self.categoryBtn.titleLabel?.text = name
-            self.categoryBtn.titleLabel?.textAlignment = .center
+        DispatchQueue.main.async { [weak self] in
+            self?.categoryBtn.titleLabel?.text = name
+            self?.categoryBtn.titleLabel?.textAlignment = .center
         }
     }
     
     func didSelectCategoryColor(_ colorHex: String) {
-        selectedCategoryColorHex = colorHex
-        DispatchQueue.main.async {
-            self.categoryBtn.backgroundColor = UIColor(hex: colorHex)
+        vm.selectedCategoryColorHex = colorHex
+        DispatchQueue.main.async {[weak self] in
+            self?.categoryBtn.backgroundColor = UIColor(hex: colorHex)
         }
     }
     
@@ -416,12 +318,3 @@ extension UIColor {
     }
 }
 
-extension UIColor {
-    func toHexString() -> String {
-        guard let components = cgColor.components, components.count >= 3 else { return "#FFFFFF" }
-        let r = Float(components[0])
-        let g = Float(components[1])
-        let b = Float(components[2])
-        return String(format: "#%02lX%02lX%02lX", lroundf(r * 255), lroundf(g * 255), lroundf(b * 255))
-    }
-}
