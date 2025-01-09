@@ -3,7 +3,9 @@
 ## 🔨사용기술
 - Swift
 - Storyboard
+- Auto-Layout
 - MVC -> MVVM 변환중
+- CoreData
 
 
 ## 🔨사용기술 주요코드
