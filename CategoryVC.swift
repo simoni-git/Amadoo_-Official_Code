@@ -10,72 +10,42 @@ import CoreData
 
 class CategoryVC: UIViewController {
     
+    var vm = CategoryVM()
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var addCategoryBtn: UIButton!
-    var categories: [NSManagedObject] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
         tableView.dataSource = self
         tableView.delegate = self
         configure()
-        fetchCategories()
-        addDefaultCategoryIfNeeded()
-        NotificationCenter.default.addObserver(self, selector: #selector(updateCategory), name: NSNotification.Name("DeleteCategory"), object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(popUpView), name: NSNotification.Name("PopUpCategoryVC"), object: nil)
     }
     
     private func configure() {
         addCategoryBtn.layer.cornerRadius = 10
         tableView.layer.cornerRadius = 10
-    }
-    
-    private func addDefaultCategoryIfNeeded() {
-        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-        
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Category")
-        request.predicate = NSPredicate(format: "isDefault == true")
-        
-        do {
-            let result = try context.fetch(request)
-            // 기본 카테고리가 없다면 추가
-            if result.isEmpty {
-                let entity = NSEntityDescription.entity(forEntityName: "Category", in: context)!
-                let defaultCategory = NSManagedObject(entity: entity, insertInto: context)
-                defaultCategory.setValue("할 일", forKey: "name")
-                defaultCategory.setValue("#808080", forKey: "color") // 회색
-                defaultCategory.setValue(true, forKey: "isDefault")
-                
-                try context.save()
-                categories.append(defaultCategory)
-                tableView.reloadData()
+        vm.fetchCategories { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
             }
-        } catch {
-            
-        }
-    }
-    
-    private func fetchCategories() {
-        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Category")
-        
-        do {
-            categories = try context.fetch(fetchRequest)
-        } catch {
-            
         }
         
-        tableView.reloadData()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCategory), name: NSNotification.Name("DeleteCategory"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(popUpView), name: NSNotification.Name("PopUpCategoryVC"), object: nil)
     }
     
     @IBAction func tapAddCategoryBtn(_ sender: UIButton) {
         guard let editCategoryVC = storyboard?.instantiateViewController(identifier: "EditCategoryVC") as? EditCategoryVC else { return }
-        editCategoryVC.delegate = self
+        editCategoryVC.vm.delegate = self
         navigationController?.pushViewController(editCategoryVC, animated: true)
     }
     
     @objc func updateCategory() {
-        fetchCategories()
+        vm.fetchCategories { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
         navigationController?.popToRootViewController(animated: true)
     }
     
@@ -91,20 +61,28 @@ class CategoryVC: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        vm.fetchCategories { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
+    }
+    
 }
 
 //MARK: - TableView 관련
 extension CategoryVC: UITableViewDataSource , UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categories.count
+        return vm.categories.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = self.tableView.dequeueReusableCell(withIdentifier: "CategoryCell") as? CategoryCell else {
             return UITableViewCell()
         }
-        let category = categories[indexPath.row]
+        let category = vm.categories[indexPath.row]
         let categoryName = category.value(forKey: "name") as? String ?? "Unknown"
         let colorCode = category.value(forKey: "color") as? String ?? "#808080"
         
@@ -128,14 +106,14 @@ extension CategoryVC: UITableViewDataSource , UITableViewDelegate {
         }
         
         guard let editCategoryVC = self.storyboard?.instantiateViewController(identifier: "EditCategoryVC") as? EditCategoryVC else { return }
-        let category = categories[indexPath.row]
+        let category = vm.categories[indexPath.row]
         let categoryName = category.value(forKey: "name") as? String ?? "Unknown"
         let colorCode = category.value(forKey: "color") as? String ?? "#808080"
         
-        editCategoryVC.originCategoryName = categoryName
-        editCategoryVC.originSelectColor = colorCode
-        editCategoryVC.isEditMode = true
-        editCategoryVC.delegate = self
+        editCategoryVC.vm.originCategoryName = categoryName
+        editCategoryVC.vm.originSelectColor = colorCode
+        editCategoryVC.vm.isEditMode = true
+        editCategoryVC.vm.delegate = self
         editCategoryVC.navigationItem.rightBarButtonItem?.isHidden = false
         
         navigationController?.pushViewController(editCategoryVC, animated: true)
@@ -146,30 +124,11 @@ extension CategoryVC: UITableViewDataSource , UITableViewDelegate {
 //MARK: - EditCategoryVC - Delegate
 extension CategoryVC: EditCategoryVCDelegate {
     func didUpdateCategory() {
-        fetchCategories()
-        tableView.reloadData()
+        vm.fetchCategories{ [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
     }
 }
 
-// MARK: - UIColor 관련
-extension UIColor {
-    static func fromHexString(_ hex: String) -> UIColor {
-        var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        
-        if hexString.hasPrefix("#") {
-            hexString.remove(at: hexString.startIndex)
-        }
-        
-        guard hexString.count == 6 else { return .gray }
-        
-        var rgbValue: UInt64 = 0
-        Scanner(string: hexString).scanHexInt64(&rgbValue)
-        
-        return UIColor(
-            red: CGFloat((rgbValue & 0xFF0000) >> 16) / 255.0,
-            green: CGFloat((rgbValue & 0x00FF00) >> 8) / 255.0,
-            blue: CGFloat(rgbValue & 0x0000FF) / 255.0,
-            alpha: 1.0
-        )
-    }
-}
