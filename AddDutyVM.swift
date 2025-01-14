@@ -34,21 +34,6 @@ class AddDutyVM {
         return dateFormatter.string(from: todayMounth!)
     }
     
-//    var context: NSManagedObjectContext {
-//        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-//            fatalError()
-//        }
-//        return app.persistentContainer.viewContext
-//    }
-//    
-//    func saveContext() {
-//        do {
-//            try context.save()
-//        } catch {
-//            
-//        }
-//    }
-    
     func saveSingleDate(text: String, date: Date) {
         let entity = NSEntityDescription.entity(forEntityName: "Schedule", in:coreDataManager.context)
         let newSchedule = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
