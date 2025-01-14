@@ -10,18 +10,10 @@ import CoreData
 
 class EditCategory_DeleteVC: UIViewController {
     
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
+    var vm = EditCategory_DeleteVM()
     @IBOutlet weak var subView: UIView!
     @IBOutlet weak var cancelBtn: UIButton!
     @IBOutlet weak var deleteBtn: UIButton!
-    var categoryName: String?
-    var selectColor: String?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -34,21 +26,13 @@ class EditCategory_DeleteVC: UIViewController {
         cancelBtn.layer.cornerRadius = 10
         deleteBtn.layer.cornerRadius = 10
     }
-    
-    private func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
-    
+
     @IBAction func tapCancelBtn(_ sender: UIButton) {
         dismiss(animated: true)
     }
     
     @IBAction func tapDeleteBtn(_ sender: UIButton) {
-        guard let categoryName = categoryName, let selectColor = selectColor else {
+        guard let categoryName = vm.categoryName, let selectColor = vm.selectColor else {
             print("Error: 카테고리 이름 또는 색상 코드가 없습니다.")
             return
         }
@@ -60,11 +44,11 @@ class EditCategory_DeleteVC: UIViewController {
         ])
         
         do {
-            let fetchResults = try context.fetch(fetchRequest)
+            let fetchResults = try vm.context.fetch(fetchRequest)
             
             if let objectToDelete = fetchResults.first as? NSManagedObject {
-                context.delete(objectToDelete)
-                saveContext()
+                vm.context.delete(objectToDelete)
+                vm.saveContext()
             } else {
                 
             }
