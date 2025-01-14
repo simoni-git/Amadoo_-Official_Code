@@ -12,6 +12,7 @@ class CalendarVM {
     
     var savedEvents: [NSManagedObject] = []
     var currentMonth: Date = Date()
+    let coreDataManager = CoreDataManager.shared
     
     enum ButtonType: String {
         case defaultDay = "defaultDay"
@@ -101,19 +102,11 @@ class CalendarVM {
         return events
     }
     
-    //MARK: - CoreData 관련
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
     func fetchSavedEvents() {
         let request = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
         
         do {
-            savedEvents = try context.fetch(request)
+            savedEvents = try coreDataManager.context.fetch(request)
         } catch  {
             
         }

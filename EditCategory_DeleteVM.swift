@@ -12,22 +12,6 @@ class EditCategory_DeleteVM {
     
     var categoryName: String?
     var selectColor: String?
-    
-    
-    //MARK: CoreData 관련
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
-    func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
+    let coreDataManager = CoreDataManager.shared
     
 }

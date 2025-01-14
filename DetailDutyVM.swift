@@ -14,6 +14,7 @@ class DetailDutyVM {
     var selectedDate: Date?
     var selecDateString: String?
     var dDayString: String?
+    let coreDataManager = CoreDataManager.shared
     
     enum ButtonType: String {
         case defaultDay = "defaultDay"
@@ -33,25 +34,8 @@ class DetailDutyVM {
         request.predicate = NSPredicate(format: "date >= %@ AND date < %@", startOfDay as NSDate, endOfDay as NSDate)
         
         do {
-            events = try context.fetch(request)
+            events = try coreDataManager.context.fetch(request)
             completion()
-        } catch {
-            
-        }
-    }
-    
-    
-    //MARK: - CoreData 저장관련
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError("Unable to get shared context")
-        }
-        return app.persistentContainer.viewContext
-    }
-    
-    func saveContext() {
-        do {
-            try context.save()
         } catch {
             
         }

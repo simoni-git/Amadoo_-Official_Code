@@ -20,6 +20,7 @@ class AddDutyVM {
     var todayMounthString: String?
     var selectedCategoryColorHex: String?
     var selectedCategoryColorName: String?
+    let coreDataManager = CoreDataManager.shared
     
     enum ButtonType: String {
         case defaultDay = "defaultDay"
@@ -33,25 +34,24 @@ class AddDutyVM {
         return dateFormatter.string(from: todayMounth!)
     }
     
-    //MARK: - CoreData 저장관련
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
-    func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
+//    var context: NSManagedObjectContext {
+//        guard let app = UIApplication.shared.delegate as? AppDelegate else {
+//            fatalError()
+//        }
+//        return app.persistentContainer.viewContext
+//    }
+//    
+//    func saveContext() {
+//        do {
+//            try context.save()
+//        } catch {
+//            
+//        }
+//    }
     
     func saveSingleDate(text: String, date: Date) {
-        let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: context)
-        let newSchedule = NSManagedObject(entity: entity!, insertInto: context)
+        let entity = NSEntityDescription.entity(forEntityName: "Schedule", in:coreDataManager.context)
+        let newSchedule = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
         newSchedule.setValue(text, forKey: "title")
         newSchedule.setValue(date, forKey: "date")
         newSchedule.setValue(date, forKey: "startDay")
@@ -62,15 +62,15 @@ class AddDutyVM {
             newSchedule.setValue(colorHex, forKey: "categoryColor")
         }
         
-        saveContext()
+        coreDataManager.saveContext()
     }
     
     func savePeriodDates(text: String, startDate: Date, endDate: Date) {
         var currentDate = startDate
         
         while currentDate <= endDate {
-            let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: context)
-            let newSchedule = NSManagedObject(entity: entity!, insertInto: context)
+            let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: coreDataManager.context)
+            let newSchedule = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
             newSchedule.setValue(text, forKey: "title")
             newSchedule.setValue(currentDate, forKey: "date")
             newSchedule.setValue(startDate, forKey: "startDay")
@@ -84,13 +84,13 @@ class AddDutyVM {
             currentDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
         }
         
-        saveContext()
+        coreDataManager.saveContext()
     }
     
     func saveMultipleDates(text: String, dates: [Date]) {
         for date in dates {
-            let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: context)
-            let newSchedule = NSManagedObject(entity: entity!, insertInto: context)
+            let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: coreDataManager.context)
+            let newSchedule = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
             newSchedule.setValue(text, forKey: "title")
             newSchedule.setValue(date, forKey: "date")
             newSchedule.setValue(date, forKey: "startDay")
@@ -102,7 +102,7 @@ class AddDutyVM {
             }
         }
         
-        saveContext()
+        coreDataManager.saveContext()
     }
     
 }

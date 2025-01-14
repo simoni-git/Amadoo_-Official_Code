@@ -44,11 +44,11 @@ class EditCategory_DeleteVC: UIViewController {
         ])
         
         do {
-            let fetchResults = try vm.context.fetch(fetchRequest)
+            let fetchResults = try vm.coreDataManager.context.fetch(fetchRequest)
             
             if let objectToDelete = fetchResults.first as? NSManagedObject {
-                vm.context.delete(objectToDelete)
-                vm.saveContext()
+                vm.coreDataManager.context.delete(objectToDelete)
+                vm.coreDataManager.saveContext()
             } else {
                 
             }

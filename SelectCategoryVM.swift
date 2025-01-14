@@ -9,28 +9,16 @@ import UIKit
 import CoreData
 
 class SelectCategoryVM {
+    
     var delegate: SelectCategoryVCDelegate?
     var categories: [NSManagedObject] = []
-    
-    
-    
-    
-    
-    
-    //MARK: CoreData 관련
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
+    let coreDataManager = CoreDataManager.shared
     
     func fetchCategories(completion: @escaping () -> Void) {
-        
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Category")
         
         do {
-            categories = try context.fetch(fetchRequest)
+            categories = try coreDataManager.context.fetch(fetchRequest)
             completion()
         } catch {
             

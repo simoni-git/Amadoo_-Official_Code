@@ -19,6 +19,7 @@ class EditCategoryVM {
     var originSelectColor: String?
     var isEditMode: Bool = false
     var isAddMode: Bool = false
+    let coreDataManager = CoreDataManager.shared
     
     let colors = [
         (name: "프렌치로즈", code: "ECBDBF"),
@@ -32,12 +33,12 @@ class EditCategoryVM {
     ]
     
     func saveCategory(categoryName: String, selectColor: String) {
-        let entity = NSEntityDescription.entity(forEntityName: "Category", in: context)
-        let newCategory = NSManagedObject(entity: entity!, insertInto: context)
+        let entity = NSEntityDescription.entity(forEntityName: "Category", in: coreDataManager.context)
+        let newCategory = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
         newCategory.setValue(categoryName, forKey: "name")
         newCategory.setValue(selectColor, forKey: "color")
         newCategory.setValue(false, forKey: "isDefault")
-        saveContext()
+        coreDataManager.saveContext()
     }
     
     func fetchCategory(name: String? , color: String?) -> (name: String , color: String)? {
@@ -50,7 +51,7 @@ class EditCategoryVM {
         ])
         
         do {
-            let fetchResults = try context.fetch(fetchRequest)
+            let fetchResults = try coreDataManager.context.fetch(fetchRequest)
             if let target = fetchResults.first as? NSManagedObject,
                let name = target.value(forKey: "name") as? String,
                let color = target.value(forKey: "color") as? String {
@@ -72,7 +73,7 @@ class EditCategoryVM {
         ])
         
         do {
-            let fetchResults = try context.fetch(fetchRequest)
+            let fetchResults = try coreDataManager.context.fetch(fetchRequest)
             return !fetchResults.isEmpty
         } catch {
             
@@ -89,28 +90,12 @@ class EditCategoryVM {
         ])
         
         do {
-            let fetchResults = try context.fetch(fetchRequest)
+            let fetchResults = try coreDataManager.context.fetch(fetchRequest)
             return !fetchResults.isEmpty
         } catch {
             
             return false
         }
     }
-    
-    //MARK: - CoreData 관련
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
-    }
-    
-    func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
-    
+   
 }

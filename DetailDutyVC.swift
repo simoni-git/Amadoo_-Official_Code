@@ -105,17 +105,17 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
                     fetchRequest.predicate = NSPredicate(format: "title == %@ AND buttonType == %@ AND startDay == %@ AND endDay == %@", title, buttonType, startDate as NSDate, endDate as NSDate)
                     
                     do {
-                        let matchingEvents = try vm.context.fetch(fetchRequest) as? [NSManagedObject]
-                        matchingEvents?.forEach { vm.context.delete($0) }
+                        let matchingEvents = try vm.coreDataManager.context.fetch(fetchRequest) as? [NSManagedObject]
+                        matchingEvents?.forEach { vm.coreDataManager.context.delete($0) }
                     } catch {
                         
                     }
                 }
             } else {
-                vm.context.delete(eventToDelete)
+                vm.coreDataManager.context.delete(eventToDelete)
             }
             
-            vm.saveContext()
+            vm.coreDataManager.saveContext()
             vm.events.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .fade)
             NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)

@@ -192,7 +192,7 @@ class EditCategoryVC: UIViewController {
             ])
             
             do {
-                let fetchResults = try vm.context.fetch(fetchRequest)
+                let fetchResults = try vm.coreDataManager.context.fetch(fetchRequest)
                 if let target = fetchResults.first as? NSManagedObject {
                     if isNameChanged {
                         target.setValue(categoryName, forKey: "name")
@@ -201,7 +201,7 @@ class EditCategoryVC: UIViewController {
                         target.setValue(selectColor, forKey: "color")
                     }
                     
-                    try vm.context.save()
+                    try vm.coreDataManager.context.save()
                     vm.delegate?.didUpdateCategory()
                     navigationController?.popViewController(animated: true)
                 } else {
@@ -232,8 +232,8 @@ class EditCategoryVC: UIViewController {
     @IBAction func tapDeleteBtn(_ sender: UIBarButtonItem) {
         guard let editCategory_DeleteVC = self.storyboard?.instantiateViewController(identifier: "EditCategory_DeleteVC") as? EditCategory_DeleteVC else { return }
         
-        editCategory_DeleteVC.categoryName = vm.originCategoryName
-        editCategory_DeleteVC.selectColor = vm.originSelectColor
+        editCategory_DeleteVC.vm.categoryName = vm.originCategoryName
+        editCategory_DeleteVC.vm.selectColor = vm.originSelectColor
         editCategory_DeleteVC.modalPresentationStyle = .overCurrentContext
         present(editCategory_DeleteVC, animated: true)
     }
