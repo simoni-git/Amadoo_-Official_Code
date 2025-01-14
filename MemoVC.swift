@@ -119,15 +119,14 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
         
         if let items = combinedItems[title] {
             if let firstItem = items.first {
-                // 첫 번째 항목이 CheckList라면 star 이미지 설정
                 if firstItem is CheckList {
                     cell.imgView.image = UIImage(systemName: "checkmark.square")
-                    cell.imgView.tintColor = UIColor(hex: "A5CBF0")
+                    cell.imgView.tintColor = UIColor.fromHexString("A5CBF0")
+                    
                 }
-                // 첫 번째 항목이 Memo라면 star.fill 이미지 설정
                 else if firstItem is Memo {
                     cell.imgView.image = UIImage(systemName: "square.text.square")
-                    cell.imgView.tintColor = UIColor(hex: "ECBDBF")
+                    cell.imgView.tintColor = UIColor.fromHexString("ECBDBF")
                 }
             }
         }
@@ -186,7 +185,6 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
 extension MemoVC: AddCheckVerMemoDelegate {
     func didSaveCheckVerMemoItems() {
         fetchAndCombineData()
-        
     }
     
 }
@@ -194,7 +192,6 @@ extension MemoVC: AddCheckVerMemoDelegate {
 extension MemoVC: AddDefaultVerMemoDelegate {
     func didSaveDefaultVerMemoItems() {
         fetchAndCombineData()
-        
     }
     
 }

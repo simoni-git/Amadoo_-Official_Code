@@ -131,7 +131,7 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         let today = Calendar.current.startOfDay(for: Date())
         let cellDate = Calendar.current.startOfDay(for: day)
         if today == cellDate {
-            cell.dateLabel.backgroundColor = UIColor(hex: "E6DFF1")
+            cell.dateLabel.backgroundColor = UIColor.fromHexString("E6DFF1")
             cell.dateLabel.layer.cornerRadius = 5
             cell.dateLabel.layer.masksToBounds = true
         } else {

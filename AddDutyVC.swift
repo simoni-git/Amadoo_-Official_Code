@@ -50,9 +50,8 @@ class AddDutyVC: UIViewController {
     }
     
     private func updateButtonStyles() {
-        let selectedColor = UIColor(hex: "FAD4D8")
-        let defaultColor = UIColor(hex: "F8EDE3")
-        
+        let selectedColor = UIColor.fromHexString("FAD4D8")
+        let defaultColor = UIColor.fromHexString("F8EDE3")
         defaultDayBtn.backgroundColor = vm.selectedButtonType == .defaultDay ? selectedColor : defaultColor
         periodDayBtn.backgroundColor = vm.selectedButtonType == .periodDay ? selectedColor : defaultColor
         multipleDayBtn.backgroundColor = vm.selectedButtonType == .multipleDay ? selectedColor : defaultColor
@@ -119,7 +118,7 @@ class AddDutyVC: UIViewController {
         }
         
         nextVC.modalPresentationStyle = .pageSheet
-        nextVC.delegate = self
+        nextVC.vm.delegate = self
         present(nextVC, animated: true)
     }
     
@@ -194,19 +193,19 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
         switch vm.selectedButtonType {
         case .defaultDay:
             if let selectedSingleDate = vm.selectedSingleDate, day == selectedSingleDate {
-                cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
+                cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
             }
             
         case .multipleDay:
             if vm.selectedMultipleDates.contains(day) {
-                cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
+                cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
             }
             
         case .periodDay:
             if let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate, day >= startDate && day <= endDate {
-                cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
+                cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
             } else if let startDate = vm.selectedStartDate, vm.selectedEndDate == nil, day == startDate {
-                cell.subView.backgroundColor = UIColor(hex: "FAD4D8")
+                cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
             }
         }
         
@@ -295,26 +294,8 @@ extension AddDutyVC: SelectCategoryVCDelegate {
     func didSelectCategoryColor(_ colorHex: String) {
         vm.selectedCategoryColorHex = colorHex
         DispatchQueue.main.async {[weak self] in
-            self?.categoryBtn.backgroundColor = UIColor(hex: colorHex)
+            self?.categoryBtn.backgroundColor = UIColor.fromHexString(colorHex)
         }
     }
     
 }
-
-//MARK: - UIColor
-extension UIColor {
-    convenience init(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.hasPrefix("#") ? String(hexSanitized.dropFirst()) : hexSanitized
-        
-        var rgb: UInt64 = 0
-        Scanner(string: hexSanitized).scanHexInt64(&rgb)
-        
-        let r = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
-        let g = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
-        let b = CGFloat(rgb & 0x0000FF) / 255.0
-        
-        self.init(red: r, green: g, blue: b, alpha: 1.0)
-    }
-}
-

@@ -55,8 +55,8 @@ class CalendarVM {
                   let startDay = event.value(forKey: "startDay") as? Date,
                   let endDay = event.value(forKey: "endDay") as? Date,
                   let colorString = event.value(forKey: "categoryColor") as? String else { continue }
-            
-            let color: UIColor = UIColor(hex: colorString)
+        
+            let color: UIColor = UIColor.fromHexString(colorString)
             let isPeriod = (buttonType == ButtonType.periodDay.rawValue)
             
             if addedEventTitles.contains(title + startDay.description) {

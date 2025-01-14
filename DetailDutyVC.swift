@@ -85,7 +85,7 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
         }
         
         if let colorHex = vm.events[indexPath.row].value(forKey: "categoryColor") as? String {
-            cell.backgroundColor = UIColor(hex: colorHex)
+            cell.backgroundColor = UIColor.fromHexString(colorHex)
         }
         
         cell.selectionStyle = .none
