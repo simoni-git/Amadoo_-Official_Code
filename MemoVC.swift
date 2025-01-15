@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 
 protocol AddCheckVerMemoDelegate: AnyObject {
     func didSaveCheckVerMemoItems()
@@ -17,24 +16,20 @@ protocol AddDefaultVerMemoDelegate: AnyObject {
 }
 
 class MemoVC: UIViewController {
-    
-    var context: NSManagedObjectContext {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError("앱 델리게이트를 찾을 수 없습니다.")
-        }
-        return appDelegate.persistentContainer.viewContext
-    }
-    
+
+    var vm = MemoVM()
     @IBOutlet weak var tableView: UITableView!
-    var combinedItems: [String: [NSManagedObject]] = [:]
-    var combinedItemTitles: [String] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
         tableView.dataSource = self
         tableView.delegate = self
         tableView.layer.cornerRadius = 10
-        fetchAndCombineData()
+        vm.fetchAndCombineData { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
     }
     
     override func setEditing(_ editing: Bool, animated: Bool) {
@@ -44,60 +39,23 @@ class MemoVC: UIViewController {
     
     @IBAction func tapAddCheckVerMemo(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddCheckVerMemoVC") as? AddCheckVerMemoVC else { return }
-        nextVC.delegate = self
+        nextVC.vm.delegate = self
         navigationController?.pushViewController(nextVC, animated: true)
     }
     
     @IBAction func tapAddDefaultVerMemo(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddDefaultVerMemoVC") as? AddDefaultVerMemoVC else { return }
-        nextVC.delegate = self
+        nextVC.vm.delegate = self
         navigationController?.pushViewController(nextVC, animated: true)
     }
     
     override func viewWillAppear(_ animated: Bool) {
-        fetchAndCombineData()
-        
-    }
-    
-    //MARK: - CoreData 관련
-    private func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
-    
-    private func fetchAndCombineData() {
-        let checkListFetch: NSFetchRequest<CheckList> = CheckList.fetchRequest()
-        let memoFetch: NSFetchRequest<Memo> = Memo.fetchRequest()
-        
-        do {
-            let checkListItems = try context.fetch(checkListFetch)
-            let memoItems = try context.fetch(memoFetch)
-            combinedItems = [:]
-            
-            for item in checkListItems {
-                let key = item.title ?? "Untitled"
-                if combinedItems[key] == nil {
-                    combinedItems[key] = []
-                }
-                combinedItems[key]?.append(item)
+        vm.fetchAndCombineData { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
             }
-            
-            for item in memoItems {
-                let key = item.title ?? "Untitled"
-                if combinedItems[key] == nil {
-                    combinedItems[key] = []
-                }
-                combinedItems[key]?.append(item)
-            }
-            
-            combinedItemTitles = Array(combinedItems.keys).sorted()
-            tableView.reloadData()
-        } catch {
-            
         }
+        
     }
     
 }
@@ -106,7 +64,7 @@ class MemoVC: UIViewController {
 extension MemoVC: UITableViewDataSource , UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return combinedItemTitles.count
+        return vm.combinedItemTitles.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -114,10 +72,10 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
             return UITableViewCell()
         }
         
-        let title = combinedItemTitles[indexPath.row]
+        let title = vm.combinedItemTitles[indexPath.row]
         cell.memoTitleLabel.text = title
         
-        if let items = combinedItems[title] {
+        if let items = vm.combinedItems[title] {
             if let firstItem = items.first {
                 if firstItem is CheckList {
                     cell.imgView.image = UIImage(systemName: "checkmark.square")
@@ -136,18 +94,18 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let selectedTitle = combinedItemTitles[indexPath.row]
-        guard let items = combinedItems[selectedTitle] else { return }
+        let selectedTitle = vm.combinedItemTitles[indexPath.row]
+        guard let items = vm.combinedItems[selectedTitle] else { return }
         
         if let firstItem = items.first {
             if firstItem is CheckList {
                 guard let nextVC = self.storyboard?.instantiateViewController(identifier: "MemoCheckVerDetailVC") as? MemoCheckVerDetailVC else { return }
-                nextVC.items = items as? [CheckList] ?? []
-                nextVC.titleText = selectedTitle
+                nextVC.vm.items = items as? [CheckList] ?? []
+                nextVC.vm.titleText = selectedTitle
                 navigationController?.pushViewController(nextVC, animated: true)
             } else if firstItem is Memo {
                 guard let nextVC = self.storyboard?.instantiateViewController(identifier: "MemoDefaultVerDetailVC") as? MemoDefaultVerDetailVC else { return }
-                nextVC.items = firstItem as? Memo
+                nextVC.vm.item = firstItem as? Memo
                 navigationController?.pushViewController(nextVC, animated: true)
             }
         }
@@ -155,17 +113,17 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            let titleToDelete = combinedItemTitles[indexPath.row]
+            let titleToDelete = vm.combinedItemTitles[indexPath.row]
             
-            if let items = combinedItems[titleToDelete] {
+            if let items = vm.combinedItems[titleToDelete] {
                 for item in items {
-                    context.delete(item)
+                    vm.coreDataManager.context.delete(item)
                 }
             }
             
-            combinedItems.removeValue(forKey: titleToDelete)
-            combinedItemTitles.remove(at: indexPath.row)
-            saveContext()
+            vm.combinedItems.removeValue(forKey: titleToDelete)
+            vm.combinedItemTitles.remove(at: indexPath.row)
+            vm.coreDataManager.saveContext()
             tableView.deleteRows(at: [indexPath], with: .automatic)
         }
     }
@@ -184,14 +142,22 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
 //MARK: - Delegate 관련
 extension MemoVC: AddCheckVerMemoDelegate {
     func didSaveCheckVerMemoItems() {
-        fetchAndCombineData()
+        vm.fetchAndCombineData { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
     }
     
 }
 
 extension MemoVC: AddDefaultVerMemoDelegate {
     func didSaveDefaultVerMemoItems() {
-        fetchAndCombineData()
+        vm.fetchAndCombineData { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
     }
     
 }

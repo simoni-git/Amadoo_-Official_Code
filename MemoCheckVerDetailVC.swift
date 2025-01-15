@@ -6,76 +6,49 @@
 //
 
 import UIKit
-import CoreData
 
 protocol MemoCheckVerWarningDelegate: AnyObject {
     func didSaveMemoItem()
 }
 
 class MemoCheckVerDetailVC: UIViewController {
-    
-    var context: NSManagedObjectContext {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError("앱 델리게이트를 찾을 수 없습니다.")
-        }
-        return appDelegate.persistentContainer.viewContext
-    }
-    
+
+    var vm = MemoCheckVerDetailVM()
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var tableView: UITableView!
-    
-    var items: [CheckList] = [] // 전달받은 항목들
-    var titleText: String? // 전달받은 제목
-    var memoType: String = "check"
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         tableView.delegate = self
         tableView.dataSource = self
-        titleLabel.text = titleText
+        DispatchQueue.main.async { [weak self] in
+            self?.titleLabel.text = self?.vm.titleText
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        fetchData()
-        
-    }
-    
-    private func fetchData() {
-        let fetchRequest: NSFetchRequest<CheckList> = CheckList.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "title == %@", titleText ?? "")
-        
-        do {
-            items = try context.fetch(fetchRequest)
-            tableView.reloadData() // 테이블 뷰 갱신
-        } catch {
-            
+        vm.fetchData { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
         }
     }
     
     @IBAction func tapAddItem(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "EditMemoCheckVer_WarningVC") as? EditMemoCheckVer_WarningVC else { return }
-        nextVC.titleText = self.titleText
-        nextVC.delegate = self
+        nextVC.vm.titleText = vm.titleText
+        nextVC.vm.delegate = self
         present(nextVC, animated: true)
     }
-    
-    // MARK: - CoreData 저장 관련
-    private func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            
-        }
-    }
-    
+ 
 }
 
 //MARK: - TableView 관련
 extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return items.count
+        return vm.items.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -83,7 +56,7 @@ extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
             return UITableViewCell()
         }
         
-        let item = items[indexPath.row]
+        let item = vm.items[indexPath.row]
         cell.nameLabel.text = item.name
         cell.configureButton(isComplete: item.isComplete)
         cell.completeBtn.addTarget(self, action: #selector(toggleComplete(_:)), for: .touchUpInside)
@@ -96,20 +69,20 @@ extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
     
     @objc private func toggleComplete(_ sender: UIButton) {
         let index = sender.tag
-        items[index].isComplete.toggle()
-        saveContext()
+        vm.items[index].isComplete.toggle()
+        vm.coreDataManager.saveContext()
         
         if let cell = tableView.cellForRow(at: IndexPath(row: index, section: 0)) as? MemoCheckVerDetail_Cell {
-            cell.configureButton(isComplete: items[index].isComplete)
+            cell.configureButton(isComplete: vm.items[index].isComplete)
         }
     }
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            let itemToDelete = items[indexPath.row]
-            context.delete(itemToDelete)
-            saveContext()
-            items.remove(at: indexPath.row)
+            let itemToDelete = vm.items[indexPath.row]
+            vm.coreDataManager.context.delete(itemToDelete)
+            vm.coreDataManager.saveContext()
+            vm.items.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .automatic)
         }
     }
@@ -123,8 +96,11 @@ extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
 //MARK: - Delegate 관련
 extension MemoCheckVerDetailVC: MemoCheckVerWarningDelegate {
     func didSaveMemoItem() {
-        fetchData()
-        
+        vm.fetchData { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
     }
     
 }
