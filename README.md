@@ -4,7 +4,7 @@
 - Swift
 - Storyboard
 - Auto-Layout
-- MVC -> MVVM 변환중
+- MVVM 
 - CoreData
 
 
