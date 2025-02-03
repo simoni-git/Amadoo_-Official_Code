@@ -126,4 +126,24 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
         return "일정삭제"
     }
     
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("\(indexPath.row) 번째 셀입니다")//🧪
+         let duty = vm.events[indexPath.row]
+        
+        guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddDutyVC") as? AddDutyVC else { return }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "ko_KR")
+        dateFormatter.dateFormat = "MM월 yyyy"
+        let monthYearString = dateFormatter.string(from: vm.selectedDate!)
+        
+        nextVC.modalPresentationStyle = .pageSheet
+        nextVC.vm.todayMounth = vm.selectedDate
+        nextVC.vm.todayMounthString = monthYearString
+        nextVC.vm.isEditMode = true
+        nextVC.vm.originDuty = duty
+        present(nextVC, animated: true)
+    }
+    
+
 }
