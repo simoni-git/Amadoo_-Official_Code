@@ -190,8 +190,7 @@ class AddDutyVC: UIViewController {
             default:
                 print("알 수 없는 버튼 타입")
             }
-            NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
-            self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
+          
             
         } else {
             
@@ -204,8 +203,6 @@ class AddDutyVC: UIViewController {
             case .defaultDay:
                 if let selectedDate = vm.selectedSingleDate {
                     vm.saveSingleDate(text: text, date: selectedDate)
-                    NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
-                    self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
                 } else {
                     popUpWarning("날짜를 선택해 주세요")
                 }
@@ -217,19 +214,17 @@ class AddDutyVC: UIViewController {
                     return
                 }
                 vm.savePeriodDates(text: text, startDate: startDate, endDate: endDate, categoryColor: vm.selectedCategoryColorHex!)
-                NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
-                self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
-                
             case .multipleDay:
                 guard !vm.selectedMultipleDates.isEmpty else {
                     popUpWarning("날짜를 선택해 주세요")
                     return
                 }
                 vm.saveMultipleDates(text: text, dates: vm.selectedMultipleDates)
-                NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
-                self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
             }
         }
+        vm.userNotificationManager.updateNotification()
+        NotificationCenter.default.post(name: NSNotification.Name("ScheduleSaved"), object: nil)
+        self.view.window?.rootViewController?.dismiss(animated: true, completion: nil)
     }
     
 }

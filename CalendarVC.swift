@@ -28,6 +28,7 @@ class CalendarVC: UIViewController {
         updateMonthLabel()
         vm.addDefaultCategory()
         vm.fetchSavedEvents()
+        vm.userNotificationManager.checkNotificationPermission()
         
         let leftSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
         leftSwipe.direction = .left

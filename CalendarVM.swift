@@ -13,6 +13,7 @@ class CalendarVM {
     var savedEvents: [NSManagedObject] = []
     var currentMonth: Date = Date()
     let coreDataManager = CoreDataManager.shared
+    let userNotificationManager = UserNotificationManager.shared
     
     enum ButtonType: String {
         case defaultDay = "defaultDay"

@@ -36,6 +36,7 @@ class AddDutyVM {
     var editEndDate: Date?
     
     let coreDataManager = CoreDataManager.shared
+    let userNotificationManager = UserNotificationManager.shared
     
     enum ButtonType: String {
         case defaultDay = "defaultDay"
