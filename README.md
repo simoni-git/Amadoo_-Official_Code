@@ -164,54 +164,6 @@ func scheduleNotifications() {
 
 ---
 
-## 🚀 Getting Started
-
-### Requirements
-- iOS 14.0+
-- Xcode 13.0+
-- Swift 5.0+
-
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone https://github.com/simoni-git/Amadoo_-Official_Code.git
-cd Amadoo_-Official_Code
-```
-
-2. **Open project**
-```bash
-open Amadoo.xcodeproj
-```
-
-3. **Build and Run**
-- Xcode에서 `Cmd + R`로 실행
-
----
-
-## 📂 Project Structure
-
-```
-Amadoo/
-├── Models/
-│   ├── CheckList.swift      # 체크리스트 Entity
-│   ├── Memo.swift            # 메모 Entity
-│   └── Schedule.swift        # 일정 Entity
-├── Views/
-│   ├── CalendarCell.swift    # 커스텀 캘린더 셀
-│   └── MemoCell.swift        # 메모 테이블뷰 셀
-├── ViewModels/
-│   ├── CalendarViewModel.swift
-│   └── MemoViewModel.swift
-├── Controllers/
-│   ├── CalendarViewController.swift
-│   └── MemoViewController.swift
-└── CoreData/
-    └── AmadooDataModel.xcdatamodeld
-```
-
----
-
 ## 🔄 버전 히스토리
 
 ### 💡 핵심 가치
@@ -318,12 +270,4 @@ UserNotifications 프레임워크 활용
 
 ---
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## ⭐ Support
-
-이 프로젝트가 도움이 되셨다면 ⭐️ Star를 눌러주세요!
