@@ -257,7 +257,7 @@ UserNotifications 프레임워크 활용
 ## 🔗 Links
 
 - **GitHub Repository**: [simoni-git/Amadoo_-Official_Code](https://github.com/simoni-git/Amadoo_-Official_Code)
-- **App Store**: [다운로드 링크 추가]
+- **App Store**: [https://apps.apple.com/kr/app/%EC%95%84%EB%A7%88%EB%91%90-%EC%9D%BC%EC%A0%95%EA%B4%80%EB%A6%AC-%EB%A9%94%EB%AA%A8%EA%B4%80%EB%A6%AC-%ED%95%84%EC%88%98%EC%95%B1/id6739255155]
 
 ---
 
