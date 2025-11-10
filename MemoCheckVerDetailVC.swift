@@ -21,6 +21,7 @@ class MemoCheckVerDetailVC: UIViewController {
         super.viewDidLoad()
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.layer.cornerRadius = 10
         DispatchQueue.main.async { [weak self] in
             self?.titleLabel.text = self?.vm.titleText
         }
@@ -67,14 +68,21 @@ extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
         return cell
     }
     
+
     @objc private func toggleComplete(_ sender: UIButton) {
         let index = sender.tag
-        vm.items[index].isComplete.toggle()
+        let item = vm.items[index]
+        item.isComplete.toggle()
         vm.coreDataManager.saveContext()
         
-        if let cell = tableView.cellForRow(at: IndexPath(row: index, section: 0)) as? MemoCheckVerDetail_Cell {
-            cell.configureButton(isComplete: vm.items[index].isComplete)
-        }
+        // 배열을 즉시 정렬
+        vm.items.sort { !$0.isComplete && $1.isComplete }
+        
+        // 애니메이션과 함께 테이블뷰 업데이트
+        tableView.performBatchUpdates({
+            // 전체 섹션 리로드 (정렬 반영)
+            tableView.reloadSections(IndexSet(integer: 0), with: .automatic)
+        }, completion: nil)
     }
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {

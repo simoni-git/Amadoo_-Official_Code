@@ -11,7 +11,7 @@ class MemoDefaultVerDetailVC: UIViewController {
     
     var vm = MemoDefaultVerDetailVM()
     @IBOutlet weak var titleLabel: UILabel!
-    @IBOutlet weak var memoLabel: UILabel!
+    @IBOutlet weak var memoTextView: UITextView!
     @IBOutlet weak var editBtn: UIButton!
 
     override func viewDidLoad() {
@@ -27,7 +27,10 @@ class MemoDefaultVerDetailVC: UIViewController {
             titleLabel.text = "제목 없음"
         }
         editBtn.layer.cornerRadius = 10
-        memoLabel.text = vm.item?.memoText ?? "메모 내용 없음"
+        memoTextView.text = vm.item?.memoText ?? "메모 내용 없음"
+        memoTextView.isEditable = false  // 편집 불가능
+        memoTextView.isSelectable = true  // 선택 가능 (복사 등을 위해)
+        memoTextView.layer.cornerRadius = 10
     }
     
     @IBAction func tapEditBtn(_ sender: UIButton) {

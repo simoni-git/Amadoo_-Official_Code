@@ -12,6 +12,7 @@ class CalendarVC: UIViewController {
     
     var vm = CalendarVM()
     @IBOutlet weak var dateLabel: UILabel!
+    @IBOutlet weak var moveDateBtn: UIButton!
     @IBOutlet weak var todayBtn: UIButton!
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
@@ -23,7 +24,7 @@ class CalendarVC: UIViewController {
         collectionView.delegate = self
         configure()
         // 마이그레이션 상태 확인
-            checkMigrationStatus()
+        checkMigrationStatus()
         // 디버깅: 동기화 상태 확인
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
             let scheduleRequest = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
@@ -47,7 +48,7 @@ class CalendarVC: UIViewController {
         vm.addDefaultCategory()
         vm.fetchSavedEvents()
         vm.userNotificationManager.checkNotificationPermission()
-        
+        collectionView.isScrollEnabled = true  // 스크롤 활성화
         let leftSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
         leftSwipe.direction = .left
         collectionView.addGestureRecognizer(leftSwipe)
@@ -85,14 +86,12 @@ class CalendarVC: UIViewController {
             collectionView.reloadData()
         }
         CATransaction.commit()
-        //collectionView.reloadData()
     }
     
     private func updateMonthLabel() {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy년 MM월"
         dateLabel.text = dateFormatter.string(from: vm.currentMonth)
-        //collectionView.reloadData()
     }
     
     private func showSyncIndicator() {
@@ -123,19 +122,75 @@ class CalendarVC: UIViewController {
             )
         }
     }
-
+    
     private func showMigrationProgress() {
-        // 상단에 "데이터 동기화 중..." 메시지 표시
         print("기존 데이터를 iCloud로 동기화하는 중...")
     }
     
+    private func showCustomMonthYearPicker() {
+        let alertController = UIAlertController(title: "언제로 이동해 볼까요?", message: "\n\n\n\n\n\n\n", preferredStyle: .alert)
+        
+        // 알럿 배경색 변경
+            if let alertView = alertController.view.subviews.first?.subviews.first?.subviews.first {
+                alertView.backgroundColor = UIColor.fromHexString("F8EDE3")
+            }
+        
+        let pickerView = UIPickerView()
+        pickerView.dataSource = self
+        pickerView.delegate = self
+        pickerView.frame = CGRect(x: 0, y: 40, width: 270, height: 130)
+        
+        alertController.view.addSubview(pickerView)
+        
+        // 현재 년도와 월을 피커에 설정
+        let currentYear = Calendar.current.component(.year, from: vm.currentMonth)
+        let currentMonth = Calendar.current.component(.month, from: vm.currentMonth)
+        let thisYear = Calendar.current.component(.year, from: Date())
+        
+        let yearRow = currentYear - (thisYear - 3)  // 현재 선택된 년도의 row 계산
+        let monthRow = currentMonth - 1
+        
+        pickerView.selectRow(yearRow, inComponent: 0, animated: false)
+        pickerView.selectRow(monthRow, inComponent: 1, animated: false)
+        
+        // 확인 버튼
+        let confirmAction = UIAlertAction(title: "이동", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            
+            let thisYear = Calendar.current.component(.year, from: Date())
+            let selectedYear = pickerView.selectedRow(inComponent: 0) + (thisYear - 3)  // -3년부터 시작
+            let selectedMonth = pickerView.selectedRow(inComponent: 1) + 1
+            
+            var components = DateComponents()
+            components.year = selectedYear
+            components.month = selectedMonth
+            components.day = 1
+            
+            if let selectedDate = Calendar.current.date(from: components) {
+                self.vm.currentMonth = selectedDate
+                self.updateMonthLabel()
+                self.refreshCalendar()
+            }
+        }
+        
+        let cancelAction = UIAlertAction(title: "취소", style: .cancel, handler: nil)
+        // 버튼 텍스트 색상 변경
+            confirmAction.setValue(UIColor.black, forKey: "titleTextColor")
+            cancelAction.setValue(UIColor.black, forKey: "titleTextColor")
+        alertController.addAction(confirmAction)
+        alertController.addAction(cancelAction)
+        
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    @IBAction func tapMoveDateBtn(_ sender: UIButton) {
+        showCustomMonthYearPicker()
+    }
+    
     @IBAction func tapTodayBtn(_ sender: UIButton) {
-        //        vm.currentMonth = Date()
-        //        collectionView.reloadData()
-        //        updateMonthLabel()
         vm.currentMonth = Date()
         updateMonthLabel()
-        refreshCalendar() // 한 번만 호출
+        refreshCalendar()
     }
     //MARK: - @objc-Code
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
@@ -144,10 +199,8 @@ class CalendarVC: UIViewController {
         } else if gesture.direction == .right {
             vm.currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: vm.currentMonth)!
         }
-        //        collectionView.reloadData()
-        //        updateMonthLabel()
         updateMonthLabel()
-        refreshCalendar() // 한 번만 호출
+        refreshCalendar()
         
         let transition = CATransition()
         transition.type = .push
@@ -158,13 +211,11 @@ class CalendarVC: UIViewController {
     
     @objc private func reloadCalendar() {
         vm.fetchSavedEvents()
-        // collectionView.reloadData()
         refreshCalendar()
     }
     
     @objc func eventDeleted() {
         vm.fetchSavedEvents()
-        //collectionView.reloadData()
         refreshCalendar()
     }
     
@@ -209,7 +260,17 @@ class CalendarVC: UIViewController {
 extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UICollectionViewDelegateFlowLayout {
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 42
+        // 해당 월에 필요한 줄 수 계산
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
+        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
+        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
+        let numberOfDays = range.count
+        
+        // 필요한 셀 개수 계산
+        let totalCells = firstWeekday + numberOfDays
+        let numberOfRows = Int(ceil(Double(totalCells) / 7.0))
+        
+        return numberOfRows * 7  // 5줄(35개) 또는 6줄(42개)
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -227,9 +288,9 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         let isCurrentMonth = Calendar.current.isDate(day, equalTo: vm.currentMonth, toGranularity: .month)
         cell.dateLabel.alpha = isCurrentMonth ? 1.0 : 0.3
         
-        if [0, 7, 14, 21, 28].contains(indexPath.item) {
+        if [0, 7, 14, 21, 28, 35].contains(indexPath.item) {  // 35 추가
             cell.dateLabel.textColor = .red
-        } else if [6, 13, 20, 27, 34].contains(indexPath.item) {
+        } else if [6, 13, 20, 27, 34, 41].contains(indexPath.item) {  // 41 추가
             cell.dateLabel.textColor = .blue
         } else {
             cell.dateLabel.textColor = .black
@@ -262,6 +323,19 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         let itemWidth = floor(totalWidth / numberOfItemsInRow)
         let remainingWidth = totalWidth - (itemWidth * numberOfItemsInRow)
         let additionalWidth = remainingWidth / 2
+        
+        // 현재 월에 필요한 줄 수 계산
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
+        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
+        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
+        let numberOfDays = range.count
+        let totalCells = firstWeekday + numberOfDays
+        let numberOfRows = CGFloat(ceil(Double(totalCells) / 7.0))
+        
+        // 컬렉션뷰의 높이를 실제 필요한 줄 수로 나눔
+        let availableHeight = collectionView.frame.height
+        let itemHeight = floor(availableHeight / numberOfRows)
+        
         let width: CGFloat
         
         if indexPath.item % Int(numberOfItemsInRow) == 0 {
@@ -272,7 +346,7 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
             width = itemWidth
         }
         
-        return CGSize(width: width, height: itemWidth * 1.5)
+        return CGSize(width: width, height: itemHeight)
         
     }
     
@@ -321,4 +395,33 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         present(nextVC, animated: true)
     }
     
+}
+
+// MARK: - UIPickerViewDataSource, UIPickerViewDelegate
+extension CalendarVC: UIPickerViewDataSource, UIPickerViewDelegate {
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 2 // 년도, 월
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        if component == 0 {
+            return 7 // 현재 년도 ± 3년 (총 7년)
+        } else {
+            return 12 // 1월 ~ 12월
+        }
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        if component == 0 {
+            let currentYear = Calendar.current.component(.year, from: Date())
+            let year = currentYear - 3 + row  // -3년부터 +3년까지
+            return "\(year)년"
+        } else {
+            return "\(row + 1)월"
+        }
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, widthForComponent component: Int) -> CGFloat {
+        return component == 0 ? 150 : 100
+    }
 }

@@ -21,7 +21,6 @@ class EditCategoryVC: UIViewController {
     var vm = EditCategoryVM()
     @IBOutlet weak var categoryTextField: UITextField!
     @IBOutlet weak var subView: UIView!
-    @IBOutlet weak var colorLabel: UILabel!
     @IBOutlet weak var saveBtn: UIButton!
     @IBOutlet weak var colorBtn1: UIButton!
     @IBOutlet weak var colorBtn2: UIButton!
@@ -77,9 +76,6 @@ class EditCategoryVC: UIViewController {
                 }
             }
             
-            DispatchQueue.main.async {
-                self.colorLabel.text = self.vm.selectColorName
-            }
         }
     }
     
@@ -117,10 +113,7 @@ class EditCategoryVC: UIViewController {
             updateButtonSelection(selectedButton: selectedButton)
             self.vm.selectColorName = selectedColorName
             self.vm.selectColorCode = selectedColorCode
-            
-            DispatchQueue.main.async {
-                self.colorLabel.text = selectedColorName
-            }
+           
         }
     }
     

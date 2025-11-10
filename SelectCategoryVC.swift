@@ -62,6 +62,7 @@ extension SelectCategoryVC: UITableViewDelegate , UITableViewDataSource {
         
         DispatchQueue.main.async {
             cell.categoryLabel.text = categoryName
+            cell.colorView.layer.cornerRadius = 10
             cell.colorView.backgroundColor = UIColor.fromHexString(colorCode)
         }
         
