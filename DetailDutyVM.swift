@@ -15,6 +15,7 @@ class DetailDutyVM {
     var selecDateString: String?
     var dDayString: String?
     let coreDataManager = CoreDataManager.shared
+    let userNotificationManager = UserNotificationManager.shared
     
     enum ButtonType: String {
         case defaultDay = "defaultDay"

@@ -51,7 +51,7 @@ class AddDutyVM {
     }
     
     func saveSingleDate(text: String, date: Date) {
-        let entity = NSEntityDescription.entity(forEntityName: "Schedule", in:coreDataManager.context)
+        let entity = NSEntityDescription.entity(forEntityName: "Schedule", in: coreDataManager.context)
         let newSchedule = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
         newSchedule.setValue(text, forKey: "title")
         newSchedule.setValue(date, forKey: "date")
@@ -64,9 +64,12 @@ class AddDutyVM {
         }
         
         coreDataManager.saveContext()
+        
+        // 네트워크 연결 상태 확인 후 동기화
+        checkAndSync()
     }
     
-    func savePeriodDates(text: String, startDate: Date, endDate: Date , categoryColor: String) {
+    func savePeriodDates(text: String, startDate: Date, endDate: Date, categoryColor: String) {
         var currentDate = startDate
         
         while currentDate <= endDate {
@@ -83,6 +86,9 @@ class AddDutyVM {
         }
         
         coreDataManager.saveContext()
+        
+        // 네트워크 연결 상태 확인 후 동기화
+        checkAndSync()
     }
     
     func saveMultipleDates(text: String, dates: [Date]) {
@@ -101,22 +107,28 @@ class AddDutyVM {
         }
         
         coreDataManager.saveContext()
+        
+        // 네트워크 연결 상태 확인 후 동기화
+        checkAndSync()
     }
     
     func fetchAndUpdateSchedule(title: String, categoryColor: String, date: Date, startDate: Date, endDate: Date) {
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
-        fetchRequest.predicate = NSPredicate(format: "title == %@ AND categoryColor == %@ AND date == %@ AND startDay == %@ AND endDay == %@" , title, categoryColor, date as CVarArg, startDate as CVarArg, endDate as CVarArg)
+        fetchRequest.predicate = NSPredicate(format: "title == %@ AND categoryColor == %@ AND date == %@ AND startDay == %@ AND endDay == %@", title, categoryColor, date as CVarArg, startDate as CVarArg, endDate as CVarArg)
         
         do {
             let results = try coreDataManager.context.fetch(fetchRequest)
             
-            if let scheduleToUpdate = results.first { 
+            if let scheduleToUpdate = results.first {
                 scheduleToUpdate.setValue(editTitle ?? title, forKey: "title")
                 scheduleToUpdate.setValue(selectedCategoryColorHex ?? categoryColor, forKey: "categoryColor")
                 scheduleToUpdate.setValue(editDate ?? date, forKey: "date")
                 scheduleToUpdate.setValue(editDate ?? date, forKey: "startDay")
                 scheduleToUpdate.setValue(editDate ?? date, forKey: "endDay")
                 coreDataManager.saveContext()
+                
+                // 네트워크 연결 상태 확인 후 동기화
+                checkAndSync()
             } else {
                 print("해당 일정이 존재하지 않습니다.")
             }
@@ -128,8 +140,7 @@ class AddDutyVM {
     
     func fetchAndUpdatePeriodSchedule(title: String, categoryColor: String, buttonType: String, startDate: Date, endDate: Date) {
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
-        fetchRequest.predicate = NSPredicate(format: "title == %@ AND categoryColor == %@ AND buttonType == %@ AND startDay == %@ AND endDay == %@", title, categoryColor, buttonType, startDate as CVarArg, endDate as CVarArg
-        )
+        fetchRequest.predicate = NSPredicate(format: "title == %@ AND categoryColor == %@ AND buttonType == %@ AND startDay == %@ AND endDay == %@", title, categoryColor, buttonType, startDate as CVarArg, endDate as CVarArg)
         
         do {
             let results = try coreDataManager.context.fetch(fetchRequest)
@@ -147,9 +158,26 @@ class AddDutyVM {
             }
             coreDataManager.saveContext()
             
+            // 네트워크 연결 상태 확인 후 동기화
+            checkAndSync()
+            
         } catch {
             print("데이터를 가져오는 중 오류 발생: \(error)")
         }
     }
     
+    // MARK: - CloudKit 동기화 체크 함수
+    private func checkAndSync() {
+        if NetworkSyncManager.shared.getCurrentNetworkStatus() {
+            CloudKitSyncManager.shared.checkAccountStatus { isAvailable in
+                if isAvailable {
+                    print("일정이 CloudKit에 동기화됩니다")
+                } else {
+                    print("iCloud 계정 확인 필요")
+                }
+            }
+        } else {
+            print("오프라인 상태 - 네트워크 연결 시 자동 동기화됩니다")
+        }
+    }
 }

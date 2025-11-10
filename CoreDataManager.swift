@@ -7,6 +7,7 @@
 
 import UIKit
 import CoreData
+import CloudKit
 
 final class CoreDataManager {
     static let shared = CoreDataManager()
@@ -23,7 +24,15 @@ final class CoreDataManager {
         do {
             try context.save()
         } catch {
-            
+            print("Core Data 저장 실패: \(error)")
         }
+    }
+    
+    // CloudKit 관련 추가 메서드들
+    var persistentContainer: NSPersistentCloudKitContainer {
+        guard let app = UIApplication.shared.delegate as? AppDelegate else {
+            fatalError()
+        }
+        return app.persistentContainer
     }
 }

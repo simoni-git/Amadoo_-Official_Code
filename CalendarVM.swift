@@ -22,24 +22,30 @@ class CalendarVM {
     }
     
     func addDefaultCategory() {
-        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Category")
-        request.predicate = NSPredicate(format: "isDefault == true")
-        
-        do {
-            let result = try context.fetch(request)
-            if result.isEmpty {
-                let entity = NSEntityDescription.entity(forEntityName: "Category", in: context)!
-                let defaultCategory = NSManagedObject(entity: entity, insertInto: context)
-                defaultCategory.setValue("할 일", forKey: "name")
-                defaultCategory.setValue("#808080", forKey: "color") // 회색
-                defaultCategory.setValue(true, forKey: "isDefault")
-                
-                try context.save()
-                
-            }
-        } catch {
+        // CloudKit 동기화가 완료될 때까지 잠시 대기
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            let context = self.coreDataManager.context
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Category")
             
+            do {
+                let allCategories = try context.fetch(request)
+                
+                // 전체 카테고리가 없을 때만 기본 카테고리 생성
+                if allCategories.isEmpty {
+                    let entity = NSEntityDescription.entity(forEntityName: "Category", in: context)!
+                    let defaultCategory = NSManagedObject(entity: entity, insertInto: context)
+                    defaultCategory.setValue("할 일", forKey: "name")
+                    defaultCategory.setValue("#808080", forKey: "color")
+                    defaultCategory.setValue(true, forKey: "isDefault")
+                    
+                    self.coreDataManager.saveContext()
+                    print("기본 카테고리 '할 일' 생성됨")
+                } else {
+                    print("카테고리가 이미 존재함 (CloudKit에서 복원되었거나 기존 데이터)")
+                }
+            } catch {
+                print("카테고리 확인 실패: \(error)")
+            }
         }
     }
     

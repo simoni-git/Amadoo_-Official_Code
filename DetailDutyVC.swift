@@ -116,8 +116,22 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
             }
             
             vm.coreDataManager.saveContext()
+            // 삭제 시에도 동기화 체크
+                    if NetworkSyncManager.shared.getCurrentNetworkStatus() {
+                        CloudKitSyncManager.shared.checkAccountStatus { isAvailable in
+                            if isAvailable {
+                                print("삭제가 CloudKit에 동기화됩니다")
+                            } else {
+                                print("iCloud 계정 확인 필요")
+                            }
+                        }
+                    } else {
+                        print("오프라인 상태 - 네트워크 연결 시 자동 동기화됩니다")
+                    }
+                    
             vm.events.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .fade)
+            vm.userNotificationManager.updateNotification()
             NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
         }
     }
