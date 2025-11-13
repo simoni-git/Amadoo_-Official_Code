@@ -1,8 +1,7 @@
 # 🗓️ 아마두 (Amadoo)
-
 > **일정과 메모를 한 곳에서 관리하는 스마트 캘린더**
 
-![Swift](https://img.shields.io/badge/Swift-5.0-orange) ![iOS](https://img.shields.io/badge/iOS-14.0+-blue) ![MVVM](https://img.shields.io/badge/Architecture-MVVM-green) ![CoreData](https://img.shields.io/badge/Database-CoreData-red)
+![Swift](https://img.shields.io/badge/Swift-5.0-orange) ![iOS](https://img.shields.io/badge/iOS-14.0+-blue) ![MVVM](https://img.shields.io/badge/Architecture-MVVM-green) ![CoreData](https://img.shields.io/badge/Database-CoreData-red) ![CloudKit](https://img.shields.io/badge/Sync-CloudKit-blue)
 
 <p align="center">
   <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.24.32.png" width="250">
@@ -22,13 +21,13 @@
 ## 📖 프로젝트 소개
 
 아마두는 **일정 관리**와 **메모 관리**를 하나로 통합한 iOS 캘린더 앱입니다.  
-커스터마이징 가능한 일정 색상과 체크리스트 기능으로 개인화된 일정 관리 경험을 제공합니다.
+커스터마이징 가능한 일정 색상과 체크리스트 기능으로 개인화된 일정 관리 경험을 제공하며, CloudKit을 통한 멀티 디바이스 동기화를 지원합니다.
 
 ### 💡 개발 배경
 
-- **v1.0 → v1.4.1 리뉴얼**: 초기 학습용 프로젝트를 1년 후 완전히 재구현
-- **실사용자 피드백 기반 개선**: App Store 배포 후 4회 업데이트
-- **기술 스택 업그레이드**: MVC → MVVM, 하드코딩 → CoreData
+- **v1.0 → v1.4.3 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 6회 업데이트
+- **실사용자 피드백 기반 개선**: App Store 배포 후 사용자 요구사항을 반영한 지속적인 기능 개선
+- **기술 스택 업그레이드**: MVC → MVVM, 하드코딩 → CoreData, 로컬 저장 → CloudKit 동기화
 
 ---
 
@@ -40,6 +39,8 @@
 | ✏️ **일정 수정** | 등록된 일정을 언제든지 자유롭게 수정 가능 |
 | ✅ **이중 메모 시스템** | 체크리스트형 + 일반형 메모를 하나의 앱에서 관리 |
 | 🔔 **스마트 알림** | 매일 아침 당일 일정을 자동으로 알림 제공 |
+| ☁️ **멀티 디바이스 동기화** | CloudKit으로 여러 기기에서 실시간 일정 동기화 |
+| 🔍 **날짜 빠른 검색** | 원하는 날짜를 검색하여 해당 월로 즉시 이동 |
 
 ---
 
@@ -53,11 +54,13 @@
 ### **Architecture & Patterns**
 - **MVVM** - View와 비즈니스 로직 분리
 - **CoreData** - 로컬 데이터 영구 저장
+- **CloudKit** - 멀티 디바이스 데이터 동기화
 
 ### **Key Features**
 - **Multi-Entity Management** - CheckList, Memo, Schedule 등 다중 Entity 활용
 - **Custom Calendar Cell** - 코드 기반 복잡한 캘린더 셀 렌더링
 - **Dynamic Data Binding** - 실시간 데이터 변경 반영
+- **Cloud Synchronization** - iCloud 기반 자동 동기화
 
 ---
 
@@ -167,16 +170,99 @@ func scheduleNotifications() {
 
 ---
 
+### 4️⃣ **멀티 디바이스 동기화 구현**
+
+**배경**  
+사용자들의 여러 기기에서 일정 동기화 요구
+
+**문제**  
+- 로컬 CoreData만으로는 디바이스 간 데이터 공유 불가
+- 데이터 충돌 및 중복 처리 필요
+- 네트워크 상태에 따른 동기화 실패 처리
+
+**해결**
+```swift
+// CloudKit을 활용한 데이터 동기화
+class CloudKitManager {
+    private let container = CKContainer.default()
+    
+    func syncSchedules() {
+        // CloudKit에서 최신 데이터 가져오기
+        let query = CKQuery(recordType: "Schedule", predicate: NSPredicate(value: true))
+        
+        container.publicCloudDatabase.perform(query, inZoneWith: nil) { records, error in
+            guard let records = records else { return }
+            
+            // CoreData와 동기화
+            self.updateLocalDatabase(with: records)
+        }
+    }
+}
+```
+
+**성과**  
+✅ 하나의 Apple 계정으로 모든 기기에서 일정 동기화  
+✅ 실시간 데이터 반영으로 사용 편의성 극대화  
+✅ 다음 프로젝트 회고에서 언급했던 기능 직접 구현
+
+---
+
+### 5️⃣ **사용자 경험 개선 - 날짜 검색 기능**
+
+**배경**  
+멀리 떨어진 날짜로 이동 시 불편함
+
+**문제**  
+- 월 단위 스와이프로 이동 시 시간 소요
+- 특정 날짜 찾기 위한 반복 작업
+
+**해결**
+```swift
+// 날짜 검색 기능 구현
+func searchAndNavigateToDate(_ targetDate: Date) {
+    let calendar = Calendar.current
+    let targetMonth = calendar.component(.month, from: targetDate)
+    let targetYear = calendar.component(.year, from: targetDate)
+    
+    // 해당 월로 즉시 이동
+    calendarView.scrollToDate(targetDate, animated: true)
+    loadSchedules(for: targetDate)
+}
+```
+
+**성과**  
+✅ 원하는 날짜로 즉시 이동 가능  
+✅ 사용자 조작 횟수 대폭 감소
+
+---
+
 ## 🔄 버전 히스토리
 
 ### 💡 핵심 가치
 - **사용자 중심 개발**: 단순한 기능 구현을 넘어 실제 사용자의 문제를 해결
-- **지속적 개선**: 5회 연속 업데이트로 입증된 피드백 반영 역량
+- **지속적 개선**: 6회 연속 업데이트로 입증된 피드백 반영 역량
 - **완성도 높은 실행력**: 개인 프로젝트를 실제 서비스 수준으로 완성
 
 ---
 
-### v1.4.1 (Latest) - 안정성 개선
+### v1.4.3 (Latest) - 멀티 디바이스 동기화
+
+**추가 기능**  
+- CloudKit 기반 멀티 디바이스 동기화
+- 날짜 검색 기능으로 빠른 달력 이동
+
+**기술 스택**  
+CloudKit 프레임워크 활용
+
+**결과**  
+✅ 하나의 Apple 계정으로 여러 기기에서 일정 동기화  
+✅ 사용자 편의성 대폭 향상  
+✅ 이전 회고에서 계획했던 기능 구현 완료
+
+---
+
+### v1.4.1 - 안정성 개선
+
 **문제**  
 새벽 시간대 앱 실행 시 당일 알림 누락 발생
 
@@ -189,6 +275,7 @@ func scheduleNotifications() {
 ---
 
 ### v1.4 - 알림 시스템
+
 **추가 기능**  
 매일 아침 일정 알림 기능 구현
 
@@ -198,6 +285,7 @@ UserNotifications 프레임워크 활용
 ---
 
 ### v1.3 - 핵심 기능 확장
+
 **사용자 요청**  
 일정 편집 기능 추가 (요청 1순위)
 
@@ -208,6 +296,7 @@ UserNotifications 프레임워크 활용
 ---
 
 ### v1.2 - 편의성 강화
+
 **추가 기능**  
 카테고리 즉시 생성 기능
 
@@ -218,6 +307,7 @@ UserNotifications 프레임워크 활용
 ---
 
 ### v1.1 - 사용성 개선
+
 **문제**  
 일정 등록 과정이 복잡하다는 사용자 피드백
 
@@ -230,6 +320,7 @@ UserNotifications 프레임워크 활용
 ---
 
 ### v1.0.0 - 초기 출시
+
 - 기본 캘린더 기능
 - 일정 추가/삭제
 - 메모 관리 기능
@@ -239,21 +330,25 @@ UserNotifications 프레임워크 활용
 ## 💭 회고 (Retrospective)
 
 ### 잘한 점 ✅
-- **실사용자 중심 개발**: App Store 배포 후 5회 연속 업데이트로 실제 사용자 문제 해결
-- **기술적 성장**: Storyboard → 코드 기반 UI로 전환하며 유연성 확보
-- **완성도 높은 실행력**: 알림 신뢰도 100% 달성 등 실제 서비스 수준 완성
+
+- **실사용자 중심 개발**: App Store 배포 후 6회 연속 업데이트로 실제 사용자 문제 해결
+- **기술적 성장**: Storyboard → 코드 기반 UI, CoreData → CloudKit 동기화까지 단계적 발전
+- **완성도 높은 실행력**: 알림 신뢰도 100% 달성, 멀티 디바이스 동기화 구현 등 실제 서비스 수준 완성
 - **체계적 문제 해결**: 각 버전마다 명확한 문제 정의 → 해결 → 검증 프로세스
+- **계획한 기능 실현**: 이전 회고에서 다음 목표로 언급했던 CloudKit 동기화를 실제로 구현
 
 ### 아쉬운 점 📝
+
 - Storyboard 중심 개발로 협업 시 충돌 가능성
 - 테스트 코드 부재로 리팩토링 시 불안감
-- 다중 디바이스 동기화 미지원
+- CloudKit 동기화 에러 핸들링 개선 필요
 
 ### 다음 프로젝트에 적용할 점 🎯
+
 - SwiftUI로 전환하여 선언형 UI 경험
 - Unit Test 도입으로 안정성 강화
-- CloudKit 연동으로 멀티 디바이스 동기화
 - Widget 기능 추가로 접근성 향상
+- 네트워크 상태별 더 정교한 동기화 로직
 
 ---
 
