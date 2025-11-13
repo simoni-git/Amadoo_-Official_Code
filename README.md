@@ -60,7 +60,7 @@
 - **Multi-Entity Management** - CheckList, Memo, Schedule 등 다중 Entity 활용
 - **Custom Calendar Cell** - 코드 기반 복잡한 캘린더 셀 렌더링
 - **Dynamic Data Binding** - 실시간 데이터 변경 반영
-- **Cloud Synchronization** - iCloud 기반 자동 동기화
+- **Cloud Synchronization** - NSPersistentCloudKitContainer 기반 자동 동기화
 
 ---
 
@@ -178,23 +178,60 @@ func scheduleNotifications() {
 **문제**  
 - 로컬 CoreData만으로는 디바이스 간 데이터 공유 불가
 - 데이터 충돌 및 중복 처리 필요
-- 네트워크 상태에 따른 동기화 실패 처리
+- 네트워크 상태 및 iCloud 계정 상태에 따른 동기화 실패 처리
+- 빈번한 동기화로 인한 성능 저하 위험
 
 **해결**
 ```swift
-// CloudKit을 활용한 데이터 동기화
-class CloudKitManager {
+class CloudKitSyncManager {
+    static let shared = CloudKitSyncManager()
     private let container = CKContainer.default()
+    private var lastNotificationTime: Date = Date(timeIntervalSince1970: 0)
     
-    func syncSchedules() {
-        // CloudKit에서 최신 데이터 가져오기
-        let query = CKQuery(recordType: "Schedule", predicate: NSPredicate(value: true))
+    // iCloud 계정 상태를 상세하게 확인
+    func checkDetailedAccountStatus(completion: @escaping (CloudKitStatus, String?) -> Void) {
+        container.accountStatus { status, error in
+            switch status {
+            case .available:
+                // 용량 체크도 함께 진행
+                self.checkiCloudQuota { hasSpace in
+                    if hasSpace {
+                        completion(.available, nil)
+                    } else {
+                        completion(.quotaExceeded, "iCloud 저장 공간이 부족합니다")
+                    }
+                }
+            case .noAccount:
+                completion(.noAccount, "iCloud 계정이 설정되지 않았습니다")
+            // ...
+            }
+        }
+    }
+    
+    // 원격 변경사항 감지 및 중복 알림 방지
+    @objc private func handleRemoteChange(_ notification: Notification) {
+        let now = Date()
         
-        container.publicCloudDatabase.perform(query, inZoneWith: nil) { records, error in
-            guard let records = records else { return }
-            
-            // CoreData와 동기화
-            self.updateLocalDatabase(with: records)
+        // 마지막 알림으로부터 2초 이내면 무시 (디바운싱)
+        if now.timeIntervalSince(lastNotificationTime) < 2.0 {
+            return
+        }
+        
+        lastNotificationTime = now
+        
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .cloudKitDataUpdated, object: nil)
+        }
+    }
+    
+    // 네트워크 상태 확인 후 동기화
+    func syncIfNetworkAvailable() {
+        if NetworkSyncManager.shared.getCurrentNetworkStatus() {
+            checkAccountStatus { isAvailable in
+                if isAvailable {
+                    self.triggerSync()
+                }
+            }
         }
     }
 }
@@ -202,7 +239,9 @@ class CloudKitManager {
 
 **성과**  
 ✅ 하나의 Apple 계정으로 모든 기기에서 일정 동기화  
-✅ 실시간 데이터 반영으로 사용 편의성 극대화  
+✅ iCloud 계정 상태 및 용량 체크로 오류 사전 방지  
+✅ 디바운싱 로직으로 불필요한 동기화 요청 방지  
+✅ 네트워크 상태 확인으로 안정적인 동기화  
 ✅ 다음 프로젝트 회고에서 언급했던 기능 직접 구현
 
 ---
@@ -249,13 +288,17 @@ func searchAndNavigateToDate(_ targetDate: Date) {
 
 **추가 기능**  
 - CloudKit 기반 멀티 디바이스 동기화
+- iCloud 계정 상태 및 저장 공간 체크
 - 날짜 검색 기능으로 빠른 달력 이동
 
-**기술 스택**  
-CloudKit 프레임워크 활용
+**기술 구현**  
+- NSPersistentCloudKitContainer 활용
+- 디바운싱 로직으로 성능 최적화
+- 네트워크 상태 확인 및 에러 핸들링
 
 **결과**  
 ✅ 하나의 Apple 계정으로 여러 기기에서 일정 동기화  
+✅ iCloud 계정 미설정 시 사용자에게 명확한 안내  
 ✅ 사용자 편의성 대폭 향상  
 ✅ 이전 회고에서 계획했던 기능 구현 완료
 
@@ -336,19 +379,20 @@ UserNotifications 프레임워크 활용
 - **완성도 높은 실행력**: 알림 신뢰도 100% 달성, 멀티 디바이스 동기화 구현 등 실제 서비스 수준 완성
 - **체계적 문제 해결**: 각 버전마다 명확한 문제 정의 → 해결 → 검증 프로세스
 - **계획한 기능 실현**: 이전 회고에서 다음 목표로 언급했던 CloudKit 동기화를 실제로 구현
+- **안정성 고려**: 디바운싱, 네트워크 체크, iCloud 계정 상태 확인 등 견고한 동기화 로직
 
 ### 아쉬운 점 📝
 
 - Storyboard 중심 개발로 협업 시 충돌 가능성
 - 테스트 코드 부재로 리팩토링 시 불안감
-- CloudKit 동기화 에러 핸들링 개선 필요
+- CloudKit 동기화 충돌 시나리오에 대한 추가 테스트 필요
 
 ### 다음 프로젝트에 적용할 점 🎯
 
 - SwiftUI로 전환하여 선언형 UI 경험
 - Unit Test 도입으로 안정성 강화
 - Widget 기능 추가로 접근성 향상
-- 네트워크 상태별 더 정교한 동기화 로직
+- CloudKit 충돌 해결 전략 고도화
 
 ---
 
