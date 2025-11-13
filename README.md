@@ -5,15 +5,18 @@
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange) ![iOS](https://img.shields.io/badge/iOS-14.0+-blue) ![MVVM](https://img.shields.io/badge/Architecture-MVVM-green) ![CoreData](https://img.shields.io/badge/Database-CoreData-red)
 
 <p align="center">
-  <img src="screenshot/1.png" width="250">
-  <img src="screenshot/2.png" width="250">
-  <img src="screenshot/3.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.24.32.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.28.19.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.28.45.png" width="250">
 </p>
-
 <p align="center">
-  <img src="screenshot/4.png" width="250">
-  <img src="screenshot/5.png" width="250">
-  <img src="screenshot/6.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.34.21.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.35.25.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.41.54.png" width="250">
+</p>
+<p align="center">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.42.09.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.43.55.png" width="250">
 </p>
 
 ## 📖 프로젝트 소개
