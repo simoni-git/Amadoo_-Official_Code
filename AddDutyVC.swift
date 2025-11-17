@@ -72,17 +72,18 @@ class AddDutyVC: UIViewController {
             
             switch buttonType {
             case "defaultDay":
-                defaultDayBtn.backgroundColor = UIColor.fromHexString("FAD4D8")
+                defaultDayBtn.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                 periodDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
                 multipleDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
             case "periodDay":
                 defaultDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
-                periodDayBtn.backgroundColor = UIColor.fromHexString("FAD4D8")
+                periodDayBtn.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                 multipleDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
             case "multipleDay":
                 defaultDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
                 periodDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
-                multipleDayBtn.backgroundColor = UIColor.fromHexString("FAD4D8")
+                multipleDayBtn.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
+           
             default:
                 break
             }
@@ -95,7 +96,7 @@ class AddDutyVC: UIViewController {
     }
     
     private func updateButtonStyles() {
-        let selectedColor = UIColor.fromHexString("FAD4D8")
+        let selectedColor = UIColor.systemPurple.withAlphaComponent(0.2)
         let defaultColor = UIColor.fromHexString("F8EDE3")
         defaultDayBtn.backgroundColor = vm.selectedButtonType == .defaultDay ? selectedColor : defaultColor
         periodDayBtn.backgroundColor = vm.selectedButtonType == .periodDay ? selectedColor : defaultColor
@@ -268,7 +269,8 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
                 return cell
             }
             
-            let backgroundColor = UIColor.fromHexString("FAD4D8")
+            //let backgroundColor = UIColor.fromHexString("FAD4D8")
+            let backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
             if vm.editStartDate == nil {
                 switch buttonType {
                 case "defaultDay":
@@ -300,9 +302,9 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
                     
                 case "periodDay":
                     if let startDate = vm.editStartDate, let endDate = vm.editEndDate, day >= startDate && day <= endDate {
-                        cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
+                        cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                     } else if let startDate = vm.editStartDate, vm.editEndDate == nil, day == startDate {
-                        cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
+                        cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                     }
                     
                 default:
@@ -326,19 +328,19 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
             switch vm.selectedButtonType {
             case .defaultDay:
                 if let selectedSingleDate = vm.selectedSingleDate, day == selectedSingleDate {
-                    cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
+                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                 }
                 
             case .multipleDay:
                 if vm.selectedMultipleDates.contains(day) {
-                    cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
+                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                 }
                 
             case .periodDay:
                 if let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate, day >= startDate && day <= endDate {
-                    cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
+                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                 } else if let startDate = vm.selectedStartDate, vm.selectedEndDate == nil, day == startDate {
-                    cell.subView.backgroundColor = UIColor.fromHexString("FAD4D8")
+                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
                 }
             }
             
