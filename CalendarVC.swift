@@ -57,6 +57,11 @@ class CalendarVC: UIViewController {
         rightSwipe.direction = .right
         collectionView.addGestureRecognizer(rightSwipe)
         
+        // configure() 메서드에 추가된 부분
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        longPressGesture.minimumPressDuration = 0.5  // 0.5초 이상 누르면 실행
+        collectionView.addGestureRecognizer(longPressGesture)
+        
         NotificationCenter.default.addObserver(self, selector: #selector(reloadCalendar), name: NSNotification.Name("ScheduleSaved"), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(eventDeleted), name: NSNotification.Name("EventDeleted"), object: nil)
         
@@ -247,6 +252,48 @@ class CalendarVC: UIViewController {
     @objc private func migrationCompleted() {
         print("데이터 동기화 완료!")
         // 진행 표시 숨김
+    }
+    
+    // 롱프레스기능
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        // began 상태에서만 실행 (중복 실행 방지)
+        guard gesture.state == .began else { return }
+        
+        let point = gesture.location(in: collectionView)
+        
+        // 롱프레스 위치에 해당하는 indexPath 가져오기
+        guard let indexPath = collectionView.indexPathForItem(at: point) else { return }
+        
+        // 선택한 날짜 계산
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
+        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
+        
+        let daysOffset = indexPath.item - firstWeekday
+        let selectedDate = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
+        
+        // 햅틱 피드백 추가 (선택 사항)
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        // AddDutyVC 띄우기
+        guard let addDutyVC = self.storyboard?.instantiateViewController(identifier: "AddDutyVC") as? AddDutyVC else { return }
+        
+        if let sheet = addDutyVC.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+        }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "ko_KR")
+        dateFormatter.dateFormat = "MM월 yyyy"
+        let monthYearString = dateFormatter.string(from: selectedDate)
+        
+        addDutyVC.modalPresentationStyle = .pageSheet
+        addDutyVC.vm.todayMounth = selectedDate
+        addDutyVC.vm.todayMounthString = monthYearString
+        addDutyVC.vm.selectedSingleDate = selectedDate
+        
+        present(addDutyVC, animated: true)
     }
     
     
