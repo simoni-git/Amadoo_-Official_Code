@@ -17,9 +17,29 @@ class TimeTableVC: UIViewController {
     @IBOutlet weak var scrollViewHeightConstraint: NSLayoutConstraint!
     @IBOutlet weak var timeStackViewWidthConstaint: NSLayoutConstraint!
     
+    private let startHourKey = "TimeTable_StartHour"
+    private let endHourKey = "TimeTable_EndHour"
     
-    var startHour = 9
-    var endHour = 21
+    // 시간 범위 - UserDefaults에서 불러오기
+    var startHour: Int {
+        get {
+            let saved = UserDefaults.standard.integer(forKey: startHourKey)
+            return saved != 0 ? saved : 9 // 저장된 값이 없으면 기본값 9
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: startHourKey)
+        }
+    }
+    
+    var endHour: Int {
+        get {
+            let saved = UserDefaults.standard.integer(forKey: endHourKey)
+            return saved != 0 ? saved : 21 // 저장된 값이 없으면 기본값 21
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: endHourKey)
+        }
+    }
     
     // Picker에서 선택된 임시 값
     private var tempStartHour = 9
@@ -31,27 +51,26 @@ class TimeTableVC: UIViewController {
     }
     
     var cellHeight: CGFloat {
-        let dayLabelWidth = dayStackView.bounds.width / 8
+        let dayLabelWidth = dayStackView.bounds.width / 6
         return dayLabelWidth * 1.5
     }
-    
-    
     
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.delegate = self
         collectionView.dataSource = self
         setupTimeLabels()
-        //updateScrollViewHeight()
-        setupCollectionView()
-        
+        loadSavedTimeRange()
+        // 롱프레스 제스처 추가
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        collectionView.addGestureRecognizer(longPressGesture)
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
         // timeStackView 너비를 dayStackView 기준으로 설정
-        let dayLabelWidth = dayStackView.bounds.width / 8
+        let dayLabelWidth = dayStackView.bounds.width / 6
         timeStackViewWidthConstaint.constant = dayLabelWidth
         
         // cellHeight로 계산 (고정 공식 사용)
@@ -61,6 +80,18 @@ class TimeTableVC: UIViewController {
     }
     
     
+    // 저장된 시간 범위 불러오기
+    func loadSavedTimeRange() {
+        // 첫 실행 시 기본값 저장
+        if UserDefaults.standard.object(forKey: startHourKey) == nil {
+            UserDefaults.standard.set(9, forKey: startHourKey)
+        }
+        if UserDefaults.standard.object(forKey: endHourKey) == nil {
+            UserDefaults.standard.set(21, forKey: endHourKey)
+        }
+        
+        print("불러온 시간 범위: \(startHour):00 ~ \(endHour):00")
+    }
     
     func setupTimeLabels() {
         // 기존 라벨 제거
@@ -99,14 +130,6 @@ class TimeTableVC: UIViewController {
             
             timeStackView.addArrangedSubview(containerView)
         }
-    }
-    
-    // 컬렉션뷰 설정
-    func setupCollectionView() {
-        collectionView.delegate = self
-        collectionView.dataSource = self
-        collectionView.register(UICollectionViewCell.self,
-                                forCellWithReuseIdentifier: "Cell")
     }
     
     @IBAction func tapOptionBtn(_ sender: UIButton) {
@@ -216,7 +239,7 @@ class TimeTableVC: UIViewController {
         view.layoutIfNeeded()
         
         // 3. 스크롤뷰 높이 다시 계산
-        let dayLabelWidth = dayStackView.bounds.width / 8
+        let dayLabelWidth = dayStackView.bounds.width / 6
         timeStackViewWidthConstaint.constant = dayLabelWidth
         scrollViewHeightConstraint.constant = cellHeight * CGFloat(hours.count)
         
@@ -236,13 +259,37 @@ class TimeTableVC: UIViewController {
         present(alert, animated: true)
     }
     
-    
+    //MARK: - @objc func
+    @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        // began 상태에서만 실행 (중복 방지)
+        guard gesture.state == .began else { return }
+        
+        let location = gesture.location(in: collectionView)
+        
+        if let indexPath = collectionView.indexPathForItem(at: location) {
+            let row = indexPath.item / 5  // 시간 인덱스
+            let column = indexPath.item % 5  // 요일 인덱스
+            let hour = hours[row]
+            let day = ["월", "화", "수", "목", "금", "토", "일"][column]
+            
+            print("눌린 셀: \(indexPath.item)번째")
+            print("위치: \(day)요일 \(hour):00")
+            
+            // ViewModel 생성 (시간 범위 전달)
+                    let nextVM = AddTimeVM(selectedHour: hour, minimumHour: startHour, maximumHour: endHour)
+            
+            guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddTimeVC") as? AddTimeVC else { return }
+            nextVC.vm = nextVM
+            present(nextVC, animated: true)
+           
+        }
+    }
     
 }
-
+//MARK: - CollectionView
 extension TimeTableVC: UICollectionViewDelegate, UICollectionViewDataSource , UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 7 * hours.count // 7 × 13 = 91개
+        return 5 * hours.count
     }
     
     func collectionView(_ collectionView: UICollectionView,
@@ -259,7 +306,7 @@ extension TimeTableVC: UICollectionViewDelegate, UICollectionViewDataSource , UI
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
         
-        let width = floor(collectionView.bounds.width / 7)  // floor 유지!
+        let width = floor(collectionView.bounds.width / 5)  // floor 유지!
         let height = timeStackView.bounds.height / CGFloat(hours.count)
         
         return CGSize(width: width, height: height)
