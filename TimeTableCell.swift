@@ -8,5 +8,13 @@
 import UIKit
 
 class TimeTableCell: UICollectionViewCell {
+    @IBOutlet weak var titleLabel: UILabel!
+    
+    override func awakeFromNib() {
+           super.awakeFromNib()
+           titleLabel.numberOfLines = 0
+           titleLabel.adjustsFontSizeToFitWidth = true
+           titleLabel.minimumScaleFactor = 0.7
+       }
     
 }

@@ -6,9 +6,10 @@
 //
 
 import UIKit
+import CoreData
 
 class TimeTableVC: UIViewController {
-    
+    var vm = TimeTableVM()
     @IBOutlet weak var optionBtn: UIButton!
     @IBOutlet weak var dayStackView: UIStackView!
     @IBOutlet weak var scrollView: UIScrollView!
@@ -34,7 +35,7 @@ class TimeTableVC: UIViewController {
     var endHour: Int {
         get {
             let saved = UserDefaults.standard.integer(forKey: endHourKey)
-            return saved != 0 ? saved : 21 // 저장된 값이 없으면 기본값 21
+            return saved != 0 ? saved : 16 // 저장된 값이 없으면 기본값 16
         }
         set {
             UserDefaults.standard.set(newValue, forKey: endHourKey)
@@ -43,27 +44,52 @@ class TimeTableVC: UIViewController {
     
     // Picker에서 선택된 임시 값
     private var tempStartHour = 9
-    private var tempEndHour = 21
+    private var tempEndHour = 16
     
     // 시간 배열
     var hours: [Int] {
         return Array(startHour...endHour)
     }
     
+    var timeSlots: [(hour: Int, minute: Int)] {
+        var slots: [(Int, Int)] = []
+        for hour in hours {
+            slots.append((hour, 0))   // 정각
+            slots.append((hour, 30))  // 30분
+        }
+        return slots
+    }
+    
     var cellHeight: CGFloat {
         let dayLabelWidth = dayStackView.bounds.width / 6
-        return dayLabelWidth * 1.5
+        return dayLabelWidth * 0.8
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.delegate = self
         collectionView.dataSource = self
+        vm = TimeTableVM()
         setupTimeLabels()
         loadSavedTimeRange()
         // 롱프레스 제스처 추가
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         collectionView.addGestureRecognizer(longPressGesture)
+        // NotificationCenter observer 추가
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reloadTimetableData),
+            name: NSNotification.Name("ReloadTimetable"),
+            object: nil
+        )
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // ViewModel에서 데이터 로드 후 컬렉션뷰 새로고침
+        vm.loadTimetableData()
+        collectionView.reloadData()
+        print("뷰윌어피얼??????????? ? ? ?")
     }
     
     override func viewDidLayoutSubviews() {
@@ -77,6 +103,15 @@ class TimeTableVC: UIViewController {
         scrollViewHeightConstraint.constant = cellHeight * CGFloat(hours.count)
         
         collectionView.collectionViewLayout.invalidateLayout()
+        // 컬렉션뷰 우측 상하 모서리 둥글게
+        collectionView.layer.cornerRadius = 10
+        collectionView.layer.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        collectionView.clipsToBounds = true
+        
+        // timeStackView 좌측 상하 모서리 둥글게 (추가)
+        timeStackView.layer.cornerRadius = 10
+        timeStackView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        timeStackView.clipsToBounds = true
     }
     
     
@@ -87,7 +122,7 @@ class TimeTableVC: UIViewController {
             UserDefaults.standard.set(9, forKey: startHourKey)
         }
         if UserDefaults.standard.object(forKey: endHourKey) == nil {
-            UserDefaults.standard.set(21, forKey: endHourKey)
+            UserDefaults.standard.set(16, forKey: endHourKey)
         }
         
         print("불러온 시간 범위: \(startHour):00 ~ \(endHour):00")
@@ -196,8 +231,8 @@ class TimeTableVC: UIViewController {
             // 최소 9시간 차이 검증
             let timeDiff = self.tempEndHour - self.tempStartHour
             
-            if timeDiff < 9 {
-                self.showErrorAlert(message: "시작 시간과 종료 시간의 차이는\n최소 9시간 이상이어야 합니다")
+            if timeDiff < 7 {
+                self.showErrorAlert(message: "시작 시간과 종료 시간의 차이는\n최소 7시간 이상이어야 합니다")
                 return
             }
             
@@ -267,47 +302,135 @@ class TimeTableVC: UIViewController {
         let location = gesture.location(in: collectionView)
         
         if let indexPath = collectionView.indexPathForItem(at: location) {
-            let row = indexPath.item / 5  // 시간 인덱스
-            let column = indexPath.item % 5  // 요일 인덱스
-            let hour = hours[row]
-            let day = ["월", "화", "수", "목", "금", "토", "일"][column]
+            let slotIndex = indexPath.item / 5  // 30분 슬롯 인덱스
+            let column = indexPath.item % 5     // 요일 인덱스
+            
+            // 1시간 단위로 변환 (정각만 선택)
+            let hourIndex = slotIndex / 2  // 30분 슬롯을 1시간 단위로 변환
+            let hour = hours[hourIndex]
+            
+            let day = ["월", "화", "수", "목", "금"][column]
             
             print("눌린 셀: \(indexPath.item)번째")
             print("위치: \(day)요일 \(hour):00")
             
-            // ViewModel 생성 (시간 범위 전달)
-                    let nextVM = AddTimeVM(selectedHour: hour, minimumHour: startHour, maximumHour: endHour)
+            // ViewModel 생성 (항상 정각으로 전달)
+            let nextVM = AddTimeVM(
+                selectedHour: hour,
+                minimumHour: startHour,
+                maximumHour: endHour,
+                dayOfWeek: column
+            )
             
             guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddTimeVC") as? AddTimeVC else { return }
             nextVC.vm = nextVM
             present(nextVC, animated: true)
-           
         }
+    }
+    
+    @objc private func reloadTimetableData() {
+        vm.loadTimetableData()
+        collectionView.reloadData()
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
 }
 //MARK: - CollectionView
 extension TimeTableVC: UICollectionViewDelegate, UICollectionViewDataSource , UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 5 * hours.count
+        return 5 * timeSlots.count
     }
     
     func collectionView(_ collectionView: UICollectionView,
                         cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "TimeTableCell",
-                                                      for: indexPath)
+                                                      for: indexPath) as! TimeTableCell
+        
+        // ⭐ 먼저 모든 커스텀 레이어 제거 (재사용 대비)
+        cell.layer.sublayers?.forEach { layer in
+            if layer.name == "topBorder" || layer.name == "leftBorder" || layer.name == "rightBorder" {
+                layer.removeFromSuperlayer()
+            }
+        }
+        
+        // 요일과 시간 계산
+        let slotIndex = indexPath.item / 5
+        let column = indexPath.item % 5
+        let timeSlot = timeSlots[slotIndex]
+        
+        // 기본 스타일
         cell.backgroundColor = .white
-        cell.layer.borderWidth = 0.5
-        cell.layer.borderColor = UIColor.systemGray4.cgColor
+        cell.titleLabel.text = ""
+        cell.layer.borderWidth = 0  // 기본 border 제거
+        
+        // ViewModel에서 해당 시간표 가져오기
+        if let timetable = vm.getTimetable(dayOfWeek: column,
+                                           hour: timeSlot.hour,
+                                           minute: timeSlot.minute) {
+            // 시간표가 있는 경우 - 배경색만 설정, 선 없음
+            if let colorCode = vm.getColorCode(from: timetable) {
+                cell.backgroundColor = UIColor.fromHexString(colorCode)
+            }
+            
+            // 첫 번째 셀인지 확인
+            let isFirst = vm.isFirstCell(dayOfWeek: column,
+                                         hour: timeSlot.hour,
+                                         minute: timeSlot.minute,
+                                         timetable: timetable)
+            
+            if isFirst {
+                cell.titleLabel.text = vm.getDisplayText(from: timetable)
+                cell.titleLabel.numberOfLines = 0
+                cell.titleLabel.font = .systemFont(ofSize: 10)
+                cell.titleLabel.textAlignment = .center
+                cell.titleLabel.textColor = .black
+            }
+        } else {
+            // 시간표가 없는 경우 - 1시간 단위 선 추가
+            
+            // 정각(00분)일 때만 상단 border 추가
+            if timeSlot.minute == 0 {
+                let topBorder = CALayer()
+                topBorder.name = "topBorder"
+                topBorder.backgroundColor = UIColor.systemGray4.cgColor
+                topBorder.frame = CGRect(x: 0, y: 0, width: cell.bounds.width, height: 0.5)
+                cell.layer.addSublayer(topBorder)
+            }
+            
+            // 좌우 border는 항상 추가 (요일 구분선)
+            addLeftRightBorders(to: cell)
+        }
+        
         return cell
     }
+    
+    // 좌우 border 추가 메서드
+    private func addLeftRightBorders(to cell: UICollectionViewCell) {
+        // 좌측 border
+        let leftBorder = CALayer()
+        leftBorder.name = "leftBorder"
+        leftBorder.backgroundColor = UIColor.systemGray4.cgColor
+        leftBorder.frame = CGRect(x: 0, y: 0, width: 0.5, height: cell.bounds.height)
+        cell.layer.addSublayer(leftBorder)
+        
+        // 우측 border
+        let rightBorder = CALayer()
+        rightBorder.name = "rightBorder"
+        rightBorder.backgroundColor = UIColor.systemGray4.cgColor
+        rightBorder.frame = CGRect(x: cell.bounds.width - 0.5, y: 0, width: 0.5, height: cell.bounds.height)
+        cell.layer.addSublayer(rightBorder)
+    }
+    
     
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
         
-        let width = floor(collectionView.bounds.width / 5)  // floor 유지!
-        let height = timeStackView.bounds.height / CGFloat(hours.count)
+        let width = floor(collectionView.bounds.width / 5)
+        let height = timeStackView.bounds.height / CGFloat(timeSlots.count)  // hours.count에서 변경
         
         return CGSize(width: width, height: height)
     }
@@ -336,10 +459,10 @@ extension TimeTableVC: UIPickerViewDelegate, UIPickerViewDataSource {
     
     func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
         if component == 0 {
-            // 시작 시간: 0 ~ 15 (최대 24-9)
-            return 16
+            // 시작 시간: 0 ~ 16
+            return 18
         } else {
-            // 종료 시간: 시작시간+9 ~ 24
+            // 종료 시간: 시작시간+7 ~ 24
             return 25
         }
     }
@@ -358,8 +481,8 @@ extension TimeTableVC: UIPickerViewDelegate, UIPickerViewDataSource {
             tempStartHour = row
             
             // 종료 시간이 시작시간+9보다 작으면 자동 조정
-            if tempEndHour < tempStartHour + 9 {
-                tempEndHour = tempStartHour + 9
+            if tempEndHour < tempStartHour + 7 {
+                tempEndHour = tempStartHour + 7
                 pickerView.selectRow(tempEndHour, inComponent: 1, animated: true)
             }
             
@@ -371,8 +494,8 @@ extension TimeTableVC: UIPickerViewDelegate, UIPickerViewDataSource {
             tempEndHour = row
             
             // 최소 9시간 차이 유지
-            if tempEndHour < tempStartHour + 9 {
-                tempEndHour = tempStartHour + 9
+            if tempEndHour < tempStartHour + 7 {
+                tempEndHour = tempStartHour + 7
                 pickerView.selectRow(tempEndHour, inComponent: 1, animated: true)
             }
         }
@@ -393,7 +516,7 @@ extension TimeTableVC: UIPickerViewDelegate, UIPickerViewDataSource {
             label.text = String(format: "%02d:00", row)
             
             // 선택 불가능한 시간은 회색으로 표시
-            if row < tempStartHour + 9 {
+            if row < tempStartHour + 7 {
                 label.textColor = .lightGray
             } else {
                 label.textColor = .black
