@@ -262,9 +262,63 @@ class TimeTableVC: UIViewController {
         present(alert, animated: true)
     }
     
+    // ⭐ 범위 벗어난 일정 확인 메서드 추가
+    private func checkAndHandleOutOfRangeTimetables(start: Int, end: Int) {
+        let context = CoreDataManager.shared.context
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "TimeTable")
+        
+        do {
+            let allTimetables = try context.fetch(fetchRequest)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            
+            var hasOutOfRange = false
+            
+            for timetable in allTimetables {
+                guard let startTime = timetable.value(forKey: "startTime") as? String,
+                      let startDate = formatter.date(from: startTime) else {
+                    continue
+                }
+                
+                let hour = Calendar.current.component(.hour, from: startDate)
+                
+                // 범위를 벗어난 일정이 있는지 확인
+                if hour < start || hour >= end + 1 {
+                    hasOutOfRange = true
+                    break
+                }
+            }
+            
+            // 범위 벗어난 일정이 있으면 경고
+            if hasOutOfRange {
+                showOutOfRangeAlert()
+            }
+            
+        } catch {
+            print("시간표 조회 실패: \(error)")
+        }
+    }
+
+    // ⭐ 경고 알럿 추가
+    private func showOutOfRangeAlert() {
+        let alert = UIAlertController(
+            title: "알림",
+            message: "선택한 시간 범위 밖에 일정이 있습니다.\n해당 일정은 표시되지 않습니다.",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "확인", style: .default))
+        
+        present(alert, animated: true)
+    }
+    
     func updateTimeRange(start: Int, end: Int) {
         startHour = start
         endHour = end
+        
+        
+        // ⭐ 범위를 벗어난 일정 확인 및 경고
+            checkAndHandleOutOfRangeTimetables(start: start, end: end)
         
         // 1. 시간 라벨 업데이트
         setupTimeLabels()
@@ -286,6 +340,17 @@ class TimeTableVC: UIViewController {
         view.layoutIfNeeded()
     }
     
+    private func showEditTimeVC(timetable: NSManagedObject) {
+        guard let editVC = storyboard?.instantiateViewController(identifier: "EditTimeVC") as? EditTimeVC else {
+            return
+        }
+        
+        let editVM = EditTimeVM(timetable: timetable, minimumHour: startHour, maximumHour: endHour)
+        editVC.vm = editVM
+        
+        present(editVC, animated: true)
+    }
+    
     func showErrorAlert() {
         let alert = UIAlertController(title: "오류",
                                       message: "시작 시간은 종료 시간보다 작아야 합니다",
@@ -293,6 +358,8 @@ class TimeTableVC: UIViewController {
         alert.addAction(UIAlertAction(title: "확인", style: .default))
         present(alert, animated: true)
     }
+    
+    
     
     //MARK: - @objc func
     @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
@@ -344,12 +411,35 @@ extension TimeTableVC: UICollectionViewDelegate, UICollectionViewDataSource , UI
         return 5 * timeSlots.count
     }
     
+   
+        func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+            let slotIndex = indexPath.item / 5
+            let column = indexPath.item % 5
+            
+            // ⭐ 안전 체크
+                guard slotIndex < timeSlots.count else { return }
+            
+            let timeSlot = timeSlots[slotIndex]
+            
+            // 해당 위치에 시간표가 있는지 확인
+            if let timetable = vm.getTimetable(dayOfWeek: column,
+                                                       hour: timeSlot.hour,
+                                                       minute: timeSlot.minute) {
+                // EditTimeVC로 이동
+                showEditTimeVC(timetable: timetable)
+            }
+        }
+    
     func collectionView(_ collectionView: UICollectionView,
                         cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "TimeTableCell",
                                                       for: indexPath) as! TimeTableCell
         
-        // ⭐ 먼저 모든 커스텀 레이어 제거 (재사용 대비)
+        // ⭐ 안전 체크 추가
+            guard indexPath.item < 5 * timeSlots.count else {
+                return cell
+            }
+        
         cell.layer.sublayers?.forEach { layer in
             if layer.name == "topBorder" || layer.name == "leftBorder" || layer.name == "rightBorder" {
                 layer.removeFromSuperlayer()
@@ -359,6 +449,15 @@ extension TimeTableVC: UICollectionViewDelegate, UICollectionViewDataSource , UI
         // 요일과 시간 계산
         let slotIndex = indexPath.item / 5
         let column = indexPath.item % 5
+        
+        // ⭐ timeSlots 범위 체크
+            guard slotIndex < timeSlots.count else {
+                cell.backgroundColor = .white
+                cell.titleLabel.text = ""
+                cell.layer.borderWidth = 0
+                return cell
+            }
+        
         let timeSlot = timeSlots[slotIndex]
         
         // 기본 스타일
