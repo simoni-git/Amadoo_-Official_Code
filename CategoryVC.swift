@@ -31,7 +31,7 @@ class CategoryVC: UIViewController {
         }
         
         NotificationCenter.default.addObserver(self, selector: #selector(updateCategory), name: NSNotification.Name("DeleteCategory"), object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(popUpView), name: NSNotification.Name("PopUpCategoryVC"), object: nil)
+
     }
     
     @IBAction func tapAddCategoryBtn(_ sender: UIButton) {
@@ -46,17 +46,8 @@ class CategoryVC: UIViewController {
                 self?.tableView.reloadData()
             }
         }
-        navigationController?.popToRootViewController(animated: true)
     }
-    
-    @objc func popUpView() {
-        if let selfView = navigationController?.viewControllers.first(where: { $0 is CategoryVC }) {
-            navigationController?.popToViewController(selfView, animated: true)
-        } else {
-            return
-        }
-    }
-    
+ 
     deinit {
         NotificationCenter.default.removeObserver(self)
     }

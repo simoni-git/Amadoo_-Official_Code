@@ -12,13 +12,13 @@ class CalendarVC: UIViewController {
     
     var vm = CalendarVM()
     @IBOutlet weak var dateLabel: UILabel!
+    @IBOutlet weak var categoryBtn: UIButton!
     @IBOutlet weak var moveDateBtn: UIButton!
     @IBOutlet weak var todayBtn: UIButton!
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
-    private var cloudKitUpdateTimer: Timer?
     
-    // 드래그 선택을 위한 프로퍼티🧪
+    private var cloudKitUpdateTimer: Timer?
     private var dragStartIndexPath: IndexPath?
     private var dragEndIndexPath: IndexPath?
     private var selectedCells: Set<IndexPath> = []
@@ -244,6 +244,16 @@ class CalendarVC: UIViewController {
         alertController.addAction(cancelAction)
         
         present(alertController, animated: true, completion: nil)
+    }
+    
+    //MARK: - Action func
+    
+    @IBAction func tapCategoryBtn(_ sender: UIButton) {
+        guard let categoryVC = storyboard?.instantiateViewController(
+                withIdentifier: "CategoryVC"
+            ) as? CategoryVC else { return }
+            
+            navigationController?.pushViewController(categoryVC, animated: true)
     }
     
     @IBAction func tapMoveDateBtn(_ sender: UIButton) {
