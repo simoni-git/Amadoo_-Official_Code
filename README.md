@@ -1,33 +1,25 @@
 # 🗓️ 아마두 (Amadoo)
-> **일정과 메모를 한 곳에서 관리하는 스마트 캘린더**
+> **캘린더, 시간표, 메모를 한 곳에서 관리하는 올인원 앱**
 
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange) ![iOS](https://img.shields.io/badge/iOS-14.0+-blue) ![MVVM](https://img.shields.io/badge/Architecture-MVVM-green) ![CoreData](https://img.shields.io/badge/Database-CoreData-red) ![CloudKit](https://img.shields.io/badge/Sync-CloudKit-blue)
 
 <p align="center">
   <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.24.32.png" width="250">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.28.19.png" width="250">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.28.45.png" width="250">
-</p>
-<p align="center">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.34.21.png" width="250">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.35.25.png" width="250">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.41.54.png" width="250">
-</p>
-<p align="center">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.42.09.png" width="250">
-  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-11-11 at 01.43.55.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-12-02 at 00.05.28.png" width="250">
+  <img src="ScreenShots/Simulator Screenshot - iPhone 16 Pro Max - 2025-12-01 at 22.07.13.png" width="250">
 </p>
 
 ## 📖 프로젝트 소개
 
-아마두는 **일정 관리**와 **메모 관리**를 하나로 통합한 iOS 캘린더 앱입니다.  
-커스터마이징 가능한 일정 색상과 체크리스트 기능으로 개인화된 일정 관리 경험을 제공하며, CloudKit을 통한 멀티 디바이스 동기화를 지원합니다.
+아마두는 **캘린더**, **시간표**, **메모 관리**를 하나로 통합한 iOS 올인원 앱입니다.  
+일정이 많은 직장인과 학생들을 위해 설계되었으며, 커스터마이징 가능한 일정 색상과 체크리스트 기능으로 개인화된 일정 관리 경험을 제공합니다. CloudKit을 통한 멀티 디바이스 동기화를 지원합니다.
 
 ### 💡 개발 배경
 
-- **v1.0 → v1.4.3 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 6회 업데이트
+- **v1.0 → v1.4.5 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 7회 업데이트
 - **실사용자 피드백 기반 개선**: App Store 배포 후 사용자 요구사항을 반영한 지속적인 기능 개선
 - **기술 스택 업그레이드**: MVC → MVVM, 하드코딩 → CoreData, 로컬 저장 → CloudKit 동기화
+- **올인원 통합 솔루션**: 캘린더 + 시간표 + 메모를 하나의 앱에서 관리
 
 ---
 
@@ -36,6 +28,7 @@
 | 기능 | 설명 |
 |------|------|
 | 📅 **커스텀 일정 관리** | 원하는 색상으로 일정을 달력에 직관적으로 표시 |
+| ⏰ **시간표 관리** | 학생과 직장인을 위한 주간 시간표 기능  |
 | ✏️ **일정 수정** | 등록된 일정을 언제든지 자유롭게 수정 가능 |
 | ✅ **이중 메모 시스템** | 체크리스트형 + 일반형 메모를 하나의 앱에서 관리 |
 | 🔔 **스마트 알림** | 매일 아침 당일 일정을 자동으로 알림 제공 |
@@ -57,8 +50,9 @@
 - **CloudKit** - 멀티 디바이스 데이터 동기화
 
 ### **Key Features**
-- **Multi-Entity Management** - CheckList, Memo, Schedule 등 다중 Entity 활용
+- **Multi-Entity Management** - CheckList, Memo, Schedule, Timetable 등 다중 Entity 활용
 - **Custom Calendar Cell** - 코드 기반 복잡한 캘린더 셀 렌더링
+- **Timetable Grid System** - CollectionView 기반 주간 시간표 구현
 - **Dynamic Data Binding** - 실시간 데이터 변경 반영
 - **Cloud Synchronization** - NSPersistentCloudKitContainer 기반 자동 동기화
 
@@ -275,16 +269,71 @@ func searchAndNavigateToDate(_ targetDate: Date) {
 
 ---
 
+### 6️⃣ **시간표 기능 구현** (NEW)
+
+**배경**  
+학생과 직장인의 주간 일정 관리 요구
+
+**문제**  
+- 캘린더만으로는 반복되는 주간 일정 확인이 불편
+- 시간대별 일정 시각화 필요
+- 요일별 시간 블록 관리 요구
+
+**해결**
+```swift
+// CollectionView 기반 시간표 그리드 시스템
+class TimetableViewController: UIViewController {
+    private let timeSlots = ["09:00", "10:00", "11:00", ...] // 시간대
+    private let weekdays = ["월", "화", "수", "목", "금"] // 요일
+    
+    func collectionView(_ collectionView: UICollectionView, 
+                       cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        // 시간대와 요일에 따른 셀 구성
+        let cell = collectionView.dequeueReusableCell(...)
+        let schedule = getTimetableData(for: indexPath)
+        cell.configure(with: schedule)
+        return cell
+    }
+}
+```
+
+**성과**  
+✅ 한눈에 보이는 주간 시간표 제공  
+✅ 직장인과 학생 모두를 위한 올인원 앱으로 진화  
+✅ 반복 일정 관리 편의성 대폭 향상
+
+---
+
 ## 🔄 버전 히스토리
 
 ### 💡 핵심 가치
 - **사용자 중심 개발**: 단순한 기능 구현을 넘어 실제 사용자의 문제를 해결
-- **지속적 개선**: 6회 연속 업데이트로 입증된 피드백 반영 역량
+- **지속적 개선**: 7회 연속 업데이트로 입증된 피드백 반영 역량
 - **완성도 높은 실행력**: 개인 프로젝트를 실제 서비스 수준으로 완성
+- **올인원 솔루션**: 캘린더, 시간표, 메모를 하나의 앱에 통합
 
 ---
 
-### v1.4.3 (Latest) - 멀티 디바이스 동기화
+### v1.4.5 (Latest) - 시간표 기능 추가
+
+**추가 기능**  
+- 주간 시간표 관리 시스템
+- 요일별/시간대별 일정 등록
+- 시간표 전용 UI 및 그리드 레이아웃
+
+**기술 구현**  
+- CollectionView 기반 시간표 그리드
+- Timetable Entity 추가
+- 시간대별 데이터 필터링 로직
+
+**결과**  
+✅ 직장인과 학생을 위한 올인원 앱으로 진화  
+✅ 주간 반복 일정 관리 편의성 향상  
+✅ 캘린더 + 시간표 + 메모 통합 솔루션 완성
+
+---
+
+### v1.4.3 - 멀티 디바이스 동기화
 
 **추가 기능**  
 - CloudKit 기반 멀티 디바이스 동기화
@@ -299,8 +348,7 @@ func searchAndNavigateToDate(_ targetDate: Date) {
 **결과**  
 ✅ 하나의 Apple 계정으로 여러 기기에서 일정 동기화  
 ✅ iCloud 계정 미설정 시 사용자에게 명확한 안내  
-✅ 사용자 편의성 대폭 향상  
-✅ 이전 회고에서 계획했던 기능 구현 완료
+✅ 사용자 편의성 대폭 향상
 
 ---
 
@@ -374,24 +422,26 @@ UserNotifications 프레임워크 활용
 
 ### 잘한 점 ✅
 
-- **실사용자 중심 개발**: App Store 배포 후 6회 연속 업데이트로 실제 사용자 문제 해결
+- **실사용자 중심 개발**: App Store 배포 후 7회 연속 업데이트로 실제 사용자 문제 해결
 - **기술적 성장**: Storyboard → 코드 기반 UI, CoreData → CloudKit 동기화까지 단계적 발전
 - **완성도 높은 실행력**: 알림 신뢰도 100% 달성, 멀티 디바이스 동기화 구현 등 실제 서비스 수준 완성
 - **체계적 문제 해결**: 각 버전마다 명확한 문제 정의 → 해결 → 검증 프로세스
-- **계획한 기능 실현**: 이전 회고에서 다음 목표로 언급했던 CloudKit 동기화를 실제로 구현
-- **안정성 고려**: 디바운싱, 네트워크 체크, iCloud 계정 상태 확인 등 견고한 동기화 로직
+- **올인원 솔루션 완성**: 캘린더, 시간표, 메모를 하나의 앱에 통합하여 사용자 편의성 극대화
+- **다양한 사용자층 확보**: 직장인, 학생 등 일정이 많은 모든 사용자를 위한 범용 앱으로 발전
 
 ### 아쉬운 점 📝
 
 - Storyboard 중심 개발로 협업 시 충돌 가능성
 - 테스트 코드 부재로 리팩토링 시 불안감
 - CloudKit 동기화 충돌 시나리오에 대한 추가 테스트 필요
+- 시간표 기능의 더 세밀한 시간 단위 설정 필요
 
 ### 다음 프로젝트에 적용할 점 🎯
 
 - SwiftUI로 전환하여 선언형 UI 경험
 - Unit Test 도입으로 안정성 강화
 - Widget 기능 추가로 접근성 향상
+- 시간표 커스터마이징 옵션 확대 (색상, 시간 간격 등)
 - CloudKit 충돌 해결 전략 고도화
 
 ---
@@ -411,5 +461,4 @@ UserNotifications 프레임워크 활용
 - 📝 Blog: [네이버 블로그](https://blog.naver.com/gms5889)
 
 ---
-
 
