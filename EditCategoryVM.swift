@@ -39,6 +39,8 @@ class EditCategoryVM {
         newCategory.setValue(selectColor, forKey: "color")
         newCategory.setValue(false, forKey: "isDefault")
         coreDataManager.saveContext()
+        // CloudKit 동기화 추가
+            checkAndSync()
     }
     
     func fetchCategory(name: String? , color: String?) -> (name: String , color: String)? {
@@ -95,6 +97,21 @@ class EditCategoryVM {
         } catch {
             
             return false
+        }
+    }
+    
+    // CloudKit 동기화 체크 함수 추가
+    private func checkAndSync() {
+        if NetworkSyncManager.shared.getCurrentNetworkStatus() {
+            CloudKitSyncManager.shared.checkAccountStatus { isAvailable in
+                if isAvailable {
+                    print("카테고리가 CloudKit에 동기화됩니다")
+                } else {
+                    print("iCloud 계정 확인 필요")
+                }
+            }
+        } else {
+            print("오프라인 상태 - 네트워크 연결 시 자동 동기화됩니다")
         }
     }
    

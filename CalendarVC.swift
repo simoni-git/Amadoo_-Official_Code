@@ -53,8 +53,8 @@ class CalendarVC: UIViewController {
     }
     
     private func configure() {
-        todayBtn.layer.cornerRadius = 10
-        collectionView.layer.cornerRadius = 10
+        todayBtn.layer.cornerRadius = Constants.UI.standardCornerRadius
+        collectionView.layer.cornerRadius = Constants.UI.standardCornerRadius
         updateMonthLabel()
         vm.addDefaultCategory()
         vm.fetchSavedEvents()
@@ -73,8 +73,8 @@ class CalendarVC: UIViewController {
         longPressGesture.minimumPressDuration = 0.5  // 0.5초 이상 누르면 실행
         collectionView.addGestureRecognizer(longPressGesture)
         
-        NotificationCenter.default.addObserver(self, selector: #selector(reloadCalendar), name: NSNotification.Name("ScheduleSaved"), object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(eventDeleted), name: NSNotification.Name("EventDeleted"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(reloadCalendar), name: NSNotification.Name(Constants.NotificationName.scheduleSaved), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(eventDeleted), name: NSNotification.Name(Constants.NotificationName.eventDeleted), object: nil)
         
         // CloudKit 및 네트워크 관련 알림 추가
         NotificationCenter.default.addObserver(
@@ -94,6 +94,7 @@ class CalendarVC: UIViewController {
     
     private func refreshCalendar() {
         DateCell.occupiedIndexesByDate.removeAll()
+        DateCell.globalEventIndexes.removeAll()  // 메모리 누수 방지
         // 애니메이션 없이 새로고침
         // 애니메이션을 완전히 비활성화
         CATransaction.begin()
@@ -116,13 +117,8 @@ class CalendarVC: UIViewController {
   
     // 화면 크기에 따라 스크롤 활성화 여부 결정
     private func updateScrollBehavior() {
-        // 현재 월에 필요한 줄 수 계산
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
-        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
-        let numberOfDays = range.count
-        let totalCells = firstWeekday + numberOfDays
-        let numberOfRows = CGFloat(ceil(Double(totalCells) / 7.0))
+        // DateHelper를 사용하여 줄 수 계산
+        let numberOfRows = CGFloat(DateHelper.shared.numberOfRowsForCalendar(currentMonth: vm.currentMonth))
         
         // 컬렉션뷰의 사용 가능한 높이
         let availableHeight = collectionView.frame.height
@@ -142,12 +138,7 @@ class CalendarVC: UIViewController {
 
     // 현재 월에 필요한 줄 수를 계산하는 헬퍼 메서드
     private func getNumberOfRows() -> Int {
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
-        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
-        let numberOfDays = range.count
-        let totalCells = firstWeekday + numberOfDays
-        return Int(ceil(Double(totalCells) / 7.0))
+        return DateHelper.shared.numberOfRowsForCalendar(currentMonth: vm.currentMonth)
     }
     
     // 각 셀의 높이를 계산하는 헬퍼 메서드
@@ -437,21 +428,15 @@ class CalendarVC: UIViewController {
     // AddDutyVC 표시
     private func showAddDutyVC(startDate: Date, endDate: Date) {
         guard let addDutyVC = self.storyboard?.instantiateViewController(identifier: "AddDutyVC") as? AddDutyVC else { return }
-        
-        if let sheet = addDutyVC.sheetPresentationController {
-            sheet.detents = [.medium()]
-            sheet.prefersGrabberVisible = true
-        }
-        
+
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "ko_KR")
         dateFormatter.dateFormat = "MM월 yyyy"
         let monthYearString = dateFormatter.string(from: startDate)
-        
-        addDutyVC.modalPresentationStyle = .pageSheet
+
         addDutyVC.vm.todayMounth = startDate
         addDutyVC.vm.todayMounthString = monthYearString
-        
+
         // 시작 날짜와 종료 날짜가 같으면 단일 날짜
         if Calendar.current.isDate(startDate, inSameDayAs: endDate) {
             addDutyVC.vm.selectedSingleDate = startDate
@@ -461,8 +446,8 @@ class CalendarVC: UIViewController {
             addDutyVC.vm.selectedEndDate = endDate
             addDutyVC.vm.selectedButtonType = .periodDay
         }
-        
-        present(addDutyVC, animated: true)
+
+        presentAsSheet(addDutyVC)
     }
 
     
@@ -493,15 +478,16 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "DateCell", for: indexPath) as? DateCell else {
             return UICollectionViewCell()
         }
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
-        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-        
-        let daysOffset = indexPath.item - firstWeekday
-        let day = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-        let dayNumber = Calendar.current.component(.day, from: day)
-        
+
+        // DateHelper를 사용하여 날짜 계산
+        guard let day = DateHelper.shared.dateForCalendarCell(at: indexPath.item, currentMonth: vm.currentMonth) else {
+            return cell
+        }
+
+        let dayNumber = DateHelper.shared.day(from: day)
         cell.dateLabel.text = "\(dayNumber)"
-        let isCurrentMonth = Calendar.current.isDate(day, equalTo: vm.currentMonth, toGranularity: .month)
+
+        let isCurrentMonth = DateHelper.shared.isDateInCurrentMonth(day, currentMonth: vm.currentMonth)
         cell.dateLabel.alpha = isCurrentMonth ? 1.0 : 0.3
         
         if [0, 7, 14, 21, 28, 35].contains(indexPath.item) {  // 35 추가
@@ -513,11 +499,11 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         }
         
         cell.dateLabel.backgroundColor = .clear
-        cell.dateLabel.layer.cornerRadius = 8
+        cell.dateLabel.layer.cornerRadius = Constants.UI.smallCornerRadius
         cell.dateLabel.layer.masksToBounds = false
-        
-        let today = Calendar.current.startOfDay(for: Date())
-        let cellDate = Calendar.current.startOfDay(for: day)
+
+        let today = DateHelper.shared.startOfDay(for: Date())
+        let cellDate = DateHelper.shared.startOfDay(for: day)
         if today == cellDate {
             cell.dateLabel.backgroundColor = UIColor.fromHexString("E6DFF1")
             cell.dateLabel.layer.cornerRadius = 5

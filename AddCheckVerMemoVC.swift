@@ -88,14 +88,9 @@ class AddCheckVerMemoVC: UIViewController {
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
-    
-    private func popUpWarning(_ ment: String) {
-        guard let warningVC = self.storyboard?.instantiateViewController(identifier: "WarningVC") as? WarningVC else {return}
-        warningVC.warningLabelText = ment
-        warningVC.modalPresentationStyle = .overCurrentContext
-        present(warningVC, animated: true)
-    }
-    
+
+    // popUpWarning 메서드 제거 - UIViewController+Alert extension의 presentWarning 사용
+
     @IBAction func tapAddItem(_ sender: UIButton) {
         vm.checkListItems.append("")
         tableView.reloadData()
@@ -108,14 +103,14 @@ class AddCheckVerMemoVC: UIViewController {
     
     @IBAction func tapSaveBtn(_ sender: UIButton) {
         guard let title = titleTextField.text, !title.isEmpty else {
-            popUpWarning("제목이 비어있네요")
+            presentWarning("제목이 비어있네요")
             return
         }
         
         for (_, cell) in tableView.visibleCells.enumerated() {
             guard let customCell = cell as? AddCheckVerMemo_Cell,
                   let name = customCell.textField.text, !name.isEmpty else {
-                popUpWarning("리스트에 빈칸을 모두 채워주세요")
+                presentWarning("리스트에 빈칸을 모두 채워주세요")
                 return
             }
             vm.checkListSetValue(title: title, name: name, isComplete: false, memoType: vm.memoType)

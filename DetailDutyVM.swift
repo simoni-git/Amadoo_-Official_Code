@@ -16,13 +16,10 @@ class DetailDutyVM {
     var dDayString: String?
     let coreDataManager = CoreDataManager.shared
     let userNotificationManager = UserNotificationManager.shared
-    
-    enum ButtonType: String {
-        case defaultDay = "defaultDay"
-        case periodDay = "periodDay"
-        case multipleDay = "multipleDay"
-    }
-    
+
+    // DutyType을 ButtonType으로 사용 (기존 코드와의 호환성 유지)
+    typealias ButtonType = DutyType
+
     func fetchEventsForSelectedDate(completion: @escaping () -> Void) {
         guard let date = selectedDate else {
             return

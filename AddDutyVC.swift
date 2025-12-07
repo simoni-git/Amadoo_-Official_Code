@@ -106,14 +106,9 @@ class AddDutyVC: UIViewController {
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
-    
-    private func popUpWarning(_ ment: String) {
-        guard let warningVC = self.storyboard?.instantiateViewController(identifier: "WarningVC") as? WarningVC else {return}
-        warningVC.warningLabelText = ment
-        warningVC.modalPresentationStyle = .overCurrentContext
-        present(warningVC, animated: true)
-    }
-    
+
+    // popUpWarning 메서드 제거 - UIViewController+Alert extension의 presentWarning 사용
+
     private func updateSelectedButtonType(_ type: AddDutyVM.ButtonType) {
         vm.selectedButtonType = type
         vm.selectedSingleDate = nil
@@ -153,24 +148,17 @@ class AddDutyVC: UIViewController {
     }
     
     @IBAction func tapCategoryBtn(_ sender: UIButton) {
-        
         guard let nextVC = storyboard?.instantiateViewController(withIdentifier: "SelectCategoryVC") as? SelectCategoryVC else {
             return
         }
-        
-        if let sheet = nextVC.sheetPresentationController {
-            sheet.detents = [.medium()]
-            sheet.prefersGrabberVisible = true
-        }
-        
-        nextVC.modalPresentationStyle = .pageSheet
+
         nextVC.vm.delegate = self
-        present(nextVC, animated: true)
+        presentAsSheet(nextVC)
     }
     
     @IBAction func tapRegisterBtn(_ sender: UIButton) {
         guard let text = dutyTextField.text, !text.isEmpty else {
-            popUpWarning("일정을 입력해 주세요")
+            presentWarning("일정을 입력해 주세요")
             return
         }
         
@@ -184,7 +172,7 @@ class AddDutyVC: UIViewController {
                 print("기간일정 편집")
                 vm.editTitle = dutyTextField.text
                 if vm.editStartDate != nil && vm.editEndDate == nil {
-                    popUpWarning("기간을 정확히 선택해 주세요")
+                    presentWarning("기간을 정확히 선택해 주세요")
                     return
                 }
                 vm.fetchAndUpdatePeriodSchedule(title: vm.originTitle, categoryColor: vm.originCategoryColor, buttonType: vm.originButtonType, startDate: vm.originStartDate, endDate: vm.originEndDate)
@@ -196,7 +184,7 @@ class AddDutyVC: UIViewController {
         } else {
             
             guard let categoryColor = vm.selectedCategoryColorHex, !categoryColor.isEmpty else {
-                popUpWarning("카테고리를 선택해 주세요")
+                presentWarning("카테고리를 선택해 주세요")
                 return
             }
             
@@ -205,19 +193,19 @@ class AddDutyVC: UIViewController {
                 if let selectedDate = vm.selectedSingleDate {
                     vm.saveSingleDate(text: text, date: selectedDate)
                 } else {
-                    popUpWarning("날짜를 선택해 주세요")
+                    presentWarning("날짜를 선택해 주세요")
                 }
                 
             case .periodDay:
                 print("기간타입 선택됨")
                 guard let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate else {
-                    popUpWarning("기간을 정확히 선택해 주세요")
+                    presentWarning("기간을 정확히 선택해 주세요")
                     return
                 }
                 vm.savePeriodDates(text: text, startDate: startDate, endDate: endDate, categoryColor: vm.selectedCategoryColorHex!)
             case .multipleDay:
                 guard !vm.selectedMultipleDates.isEmpty else {
-                    popUpWarning("날짜를 선택해 주세요")
+                    presentWarning("날짜를 선택해 주세요")
                     return
                 }
                 vm.saveMultipleDates(text: text, dates: vm.selectedMultipleDates)

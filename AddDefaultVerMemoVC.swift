@@ -105,18 +105,13 @@ class AddDefaultVerMemoVC: UIViewController {
             self.view.frame.origin.y = 0
         }
     }
-    
-    private func popUpWarning(_ ment: String) {
-        guard let warningVC = self.storyboard?.instantiateViewController(identifier: "WarningVC") as? WarningVC else {return}
-        warningVC.warningLabelText = ment
-        warningVC.modalPresentationStyle = .overCurrentContext
-        present(warningVC, animated: true)
-    }
-    
+
+    // popUpWarning 메서드 제거 - UIViewController+Alert extension의 presentWarning 사용
+
     @IBAction func tapRegisterBtn(_ sender: UIButton) {
         if vm.isEditMode == false {
             guard let title = titleTextField.text , let memoText = memoTextView.text , !title.isEmpty && !memoText.isEmpty else {
-                popUpWarning("제목과 메모글을 모두 작성해 주세요")
+                presentWarning("제목과 메모글을 모두 작성해 주세요")
                 return
             }
             vm.memoSetValue(title: title, memoText: memoText, memoType: vm.memoType)
@@ -146,13 +141,13 @@ class AddDefaultVerMemoVC: UIViewController {
                         navigationController?.popToRootViewController(animated: true)
                         
                     } else {
-                        popUpWarning("편집할 메모를 찾을 수 없습니다.")
+                        presentWarning("편집할 메모를 찾을 수 없습니다.")
                     }
                 } catch {
                     
                 }
             } else {
-                popUpWarning("변경된 부분이 없는 것 같아요")
+                presentWarning("변경된 부분이 없는 것 같아요")
             }
         }
     }

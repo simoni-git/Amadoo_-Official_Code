@@ -37,13 +37,10 @@ class AddDutyVM {
     
     let coreDataManager = CoreDataManager.shared
     let userNotificationManager = UserNotificationManager.shared
-    
-    enum ButtonType: String {
-        case defaultDay = "defaultDay"
-        case periodDay = "periodDay"
-        case multipleDay = "multipleDay"
-    }
-    
+
+    // DutyType을 ButtonType으로 사용 (기존 코드와의 호환성 유지)
+    typealias ButtonType = DutyType
+
     func getFormattedMonth() -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MM월 yyyy"

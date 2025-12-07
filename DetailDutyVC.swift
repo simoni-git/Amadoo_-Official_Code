@@ -44,22 +44,16 @@ class DetailDutyVC: UIViewController {
     
     @IBAction func tapAddBtn(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddDutyVC") as? AddDutyVC else { return }
-        
-        if let sheet = nextVC.sheetPresentationController {
-            sheet.detents = [.medium()]
-            sheet.prefersGrabberVisible = true
-        }
-        
+
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "ko_KR")
         dateFormatter.dateFormat = "MM월 yyyy"
         let monthYearString = dateFormatter.string(from: vm.selectedDate!)
-        
-        nextVC.modalPresentationStyle = .pageSheet
+
         nextVC.vm.todayMounth = vm.selectedDate
         nextVC.vm.todayMounthString = monthYearString
         nextVC.vm.selectedSingleDate = vm.selectedDate
-        present(nextVC, animated: true)
+        presentAsSheet(nextVC)
     }
     
     @IBAction func tapBgBtn(_ sender: UIButton) {

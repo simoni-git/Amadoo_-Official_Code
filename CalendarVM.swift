@@ -9,17 +9,14 @@ import UIKit
 import CoreData
 
 class CalendarVM {
-    
+
     var savedEvents: [NSManagedObject] = []
     var currentMonth: Date = Date()
     let coreDataManager = CoreDataManager.shared
     let userNotificationManager = UserNotificationManager.shared
-    
-    enum ButtonType: String {
-        case defaultDay = "defaultDay"
-        case periodDay = "periodDay"
-        case multipleDay = "multipleDay"
-    }
+
+    // DutyType을 ButtonType으로 사용 (기존 코드와의 호환성 유지)
+    typealias ButtonType = DutyType
     
     func addDefaultCategory() {
         // CloudKit 동기화가 완료될 때까지 잠시 대기

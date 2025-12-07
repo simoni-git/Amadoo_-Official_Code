@@ -22,8 +22,8 @@ class CategoryVC: UIViewController {
     }
     
     private func configure() {
-        addCategoryBtn.layer.cornerRadius = 10
-        tableView.layer.cornerRadius = 10
+        addCategoryBtn.applyStandardCornerRadius()
+        tableView.applyStandardCornerRadius()
         vm.fetchCategories { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()

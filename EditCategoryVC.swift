@@ -38,6 +38,13 @@ class EditCategoryVC: UIViewController {
         configure()
         setupTextField()
         setupGestures()
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(categoryDeleted),
+            name: NSNotification.Name("DeleteCategory"),
+            object: nil
+        )
     }
     // MARK: - Setup
     
@@ -52,10 +59,10 @@ class EditCategoryVC: UIViewController {
     }
     
     private func configureUI() {
-        subView.layer.cornerRadius = 10
-        saveBtn.layer.cornerRadius = 10
+        subView.applyStandardCornerRadius()
+        saveBtn.applyStandardCornerRadius()
         [colorBtn1, colorBtn2, colorBtn3, colorBtn4, colorBtn5, colorBtn6, colorBtn7, colorBtn8]
-            .forEach { $0?.layer.cornerRadius = 10 }
+            .forEach { $0?.applyStandardCornerRadius() }
     }
     
     private func setupTextField() {
@@ -221,14 +228,9 @@ class EditCategoryVC: UIViewController {
         alert.addAction(okAction)
         present(alert, animated: true, completion: nil)
     }
-    
-    private func popUpWarning(_ ment: String) {
-        guard let warningVC = self.storyboard?.instantiateViewController(identifier: "WarningVC") as? WarningVC else { return }
-        warningVC.warningLabelText = ment
-        warningVC.modalPresentationStyle = .overCurrentContext
-        present(warningVC, animated: true)
-    }
-    
+
+    // popUpWarning 메서드 제거 - UIViewController+Alert extension의 presentWarning 사용
+
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
@@ -257,7 +259,7 @@ class EditCategoryVC: UIViewController {
         
         guard validation.isValid else {
             if let message = validation.message {
-                popUpWarning(message)
+                presentWarning(message)
             }
             return
         }
@@ -269,7 +271,7 @@ class EditCategoryVC: UIViewController {
     }
     
     @IBAction func tapDeleteBtn(_ sender: UIBarButtonItem) {
-        guard let editCategory_DeleteVC = self.storyboard?.instantiateViewController(identifier: "EditCategory_DeleteVC") as? EditCategory_DeleteVC else { return }
+        guard let editCategory_DeleteVC = self.storyboard?.instantiateViewController(identifier: "CategoryDeletePopupVC") as? CategoryDeletePopupVC else { return }
         
         editCategory_DeleteVC.vm.categoryName = vm.originCategoryName
         editCategory_DeleteVC.vm.selectColor = vm.originSelectColor
@@ -277,6 +279,16 @@ class EditCategoryVC: UIViewController {
         present(editCategory_DeleteVC, animated: true)
     }
     
+    //MARK: - @objc
+  
+    @objc private func categoryDeleted() {
+        navigationController?.popViewController(animated: true)
+    }
+
+   
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 }
 
 //MARK: - TextField 관련

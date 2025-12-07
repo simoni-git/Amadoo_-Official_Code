@@ -15,7 +15,15 @@ final class CoreDataManager {
     
     var context: NSManagedObjectContext {
         guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
+            print("❌ Error: Unable to access AppDelegate")
+            // SceneDelegate를 사용하는 경우를 대비한 fallback
+            let container = NSPersistentCloudKitContainer(name: "NewCalendar")
+            container.loadPersistentStores { _, error in
+                if let error = error {
+                    print("❌ Core Data 로드 실패: \(error)")
+                }
+            }
+            return container.viewContext
         }
         return app.persistentContainer.viewContext
     }
@@ -31,7 +39,15 @@ final class CoreDataManager {
     // CloudKit 관련 추가 메서드들
     var persistentContainer: NSPersistentCloudKitContainer {
         guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
+            print("❌ Error: Unable to access AppDelegate for persistentContainer")
+            // 새로운 컨테이너 인스턴스 생성 (fallback)
+            let container = NSPersistentCloudKitContainer(name: "NewCalendar")
+            container.loadPersistentStores { _, error in
+                if let error = error {
+                    print("❌ Persistent store 로드 실패: \(error)")
+                }
+            }
+            return container
         }
         return app.persistentContainer
     }

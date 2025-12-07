@@ -6,14 +6,32 @@
 //
 
 import UIKit
+
 class DateCell: UICollectionViewCell {
-    
+
     @IBOutlet weak var dateLabel: UILabel!
     @IBOutlet weak var dutyStackView: UIStackView!
     static var globalEventIndexes: [String: Int] = [:]
     static var occupiedIndexesByDate: [Date: [Int: String]] = [:]
-    private let maxDisplayEvents = 4
-    
+    private let maxDisplayEvents = Constants.Calendar.maxDisplayedEvents
+
+    /// 시작일부터 종료일까지의 날짜 배열을 생성 (성능 최적화)
+    private func dateRange(from startDate: Date, to endDate: Date) -> [Date] {
+        var dates: [Date] = []
+        var currentDate = DateHelper.shared.startOfDay(for: startDate)
+        let end = DateHelper.shared.startOfDay(for: endDate)
+
+        while currentDate <= end {
+            dates.append(currentDate)
+            guard let nextDate = DateHelper.shared.date(byAddingDays: 1, to: currentDate) else {
+                break
+            }
+            currentDate = nextDate
+        }
+
+        return dates
+    }
+
     func configure(with events: [(title: String, color: UIColor, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)], for date: Date) {
         dutyStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
@@ -33,16 +51,19 @@ class DateCell: UICollectionViewCell {
             let endDate = event.endDate
             var assignedIndex: Int = -1
             
+            // 날짜 범위를 미리 계산 (성능 최적화)
+            let dateRangeArray = dateRange(from: startDate, to: endDate)
+
             for i in 0..<maxDisplayEvents {
                 var isConflict = false
-                
-                for day in stride(from: startDate, through: endDate, by: 86400) { 
+
+                for day in dateRangeArray {
                     if let occupiedTitle = DateCell.occupiedIndexesByDate[day]?[i], occupiedTitle != title {
                         isConflict = true
                         break
                     }
                 }
-                
+
                 if !isConflict {
                     assignedIndex = i
                     break
@@ -50,8 +71,9 @@ class DateCell: UICollectionViewCell {
             }
             
             guard assignedIndex != -1 else { continue }
-            
-            for day in stride(from: startDate, through: endDate, by: 86400) {
+
+            // 이미 계산된 날짜 배열 재사용 (성능 최적화)
+            for day in dateRangeArray {
                 if DateCell.occupiedIndexesByDate[day] == nil {
                     DateCell.occupiedIndexesByDate[day] = [:]
                 }
@@ -66,15 +88,14 @@ class DateCell: UICollectionViewCell {
             } else {
                 label.text = title
             }
-            
-            DispatchQueue.main.async {
-                label.backgroundColor = event.color
-                label.textAlignment = .center
-                label.font = UIFont.systemFont(ofSize: 10)
-                label.textColor = .white
-                label.clipsToBounds = true
-                label.layer.cornerRadius = 5
-            }
+
+            // 이미 main thread에서 실행 중이므로 async 불필요 (성능 최적화)
+            label.backgroundColor = event.color
+            label.textAlignment = .center
+            label.font = UIFont.systemFont(ofSize: 10)
+            label.textColor = .white
+            label.clipsToBounds = true
+            label.layer.cornerRadius = 5
             
             if event.isStart && event.isEnd {
                 label.layer.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMinYCorner, .layerMaxXMaxYCorner]

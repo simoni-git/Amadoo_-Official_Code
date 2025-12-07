@@ -12,11 +12,10 @@ import CoreData
 class UserNotificationManager {
     static let shared = UserNotificationManager()
     private init() {}
-    var context: NSManagedObjectContext {
-        guard let app = UIApplication.shared.delegate as? AppDelegate else {
-            fatalError()
-        }
-        return app.persistentContainer.viewContext
+
+    // CoreDataManager를 재사용하여 중복 제거
+    private var context: NSManagedObjectContext {
+        return CoreDataManager.shared.context
     }
     
     func checkNotificationPermission() {
@@ -56,46 +55,70 @@ class UserNotificationManager {
     
     func updateNotification() {
         let notificationCenter = UNUserNotificationCenter.current()
-        // 모든 알림을 지움
-        notificationCenter.removeAllPendingNotificationRequests()
-        
-        // 오늘부터 7일간의 날짜에 대해 알림을 설정
-        for i in 1...7 {
+        notificationCenter.removeAllPendingNotificationRequests() // 기존 알림 제거
+
+        let now = Date()
+        let calendar = Calendar.current
+
+        // 오늘 오전 7시
+        guard let today7AM = calendar.date(bySettingHour: 7, minute: 0, second: 0, of: now) else {
+            print("❌ Error: Unable to create 7AM time for today")
+            return
+        }
+
+        // 오늘 포함 7일 동안 반복
+        for i in 0...6 {
             let content = UNMutableNotificationContent()
-            
-            // 오늘 날짜로부터 1일, 2일, ..., 7일 후의 날짜 계산
-            let triggerDate = Calendar.current.date(byAdding: .day, value: i, to: Date()) ?? Date()
-            
-            // 7일 뒤의 알림 시간을 오전 7시로 설정
-            let calendar = Calendar.current
+
+            // i일 후의 날짜 계산
+            let triggerDate = calendar.date(byAdding: .day, value: i, to: now) ?? now
+
+            // 해당 날짜의 오전 7시 설정
             var triggerDateComponents = calendar.dateComponents([.year, .month, .day], from: triggerDate)
-            triggerDateComponents.hour = 7  // 오전 7시 설정
+            triggerDateComponents.hour = 7
             triggerDateComponents.minute = 0
             triggerDateComponents.second = 0
-            
-            // 해당 날짜의 아이템 갯수를 계산
+
+            // 해당 날짜의 일정 개수 확인
             let itemCount = fetchItemCount(for: triggerDate)
             print("\(triggerDate)일의 일정 개수: \(itemCount)개")
-            // 알림 내용 설정
+
             content.title = "아마두"
             content.body = "오늘은 \(itemCount)개의 일정이 있군요! \n새로운 하루, 새로운 기회! 오늘은 더 나은 나를 만나는 날😄"
             content.sound = .default
-            
-            let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDateComponents, repeats: false)
-            
-            // 알림 등록
-            let request = UNNotificationRequest(identifier: "day\(i)_notification", content: content, trigger: trigger)
 
-            notificationCenter.add(request) { error in
-                if let error = error {
-                    print("\(i)일 후 알림 등록 실패: \(error.localizedDescription)")
+            let trigger: UNNotificationTrigger?
+
+            if i == 0 {
+                // 오늘의 알림: 오전 7시 이전이면 등록, 이후면 등록 안 함
+                if now < today7AM {
+                    trigger = UNCalendarNotificationTrigger(dateMatching: triggerDateComponents, repeats: false)
+                    print("오늘(\(triggerDate)) 오전 7시 알림 등록 예정")
                 } else {
-                    print("\(i)일 후 알림 등록 성공")
+                    trigger = nil
+                    print("오늘 오전 7시가 이미 지나서 알림을 등록하지 않음")
+                }
+            } else {
+                // 내일부터 6일간 알림 등록
+                trigger = UNCalendarNotificationTrigger(dateMatching: triggerDateComponents, repeats: false)
+                print("\(i)일 후(\(triggerDate)) 오전 7시 알림 등록 예정")
+            }
+
+            // 트리거가 nil이 아닐 때만 알림 추가
+            if let validTrigger = trigger {
+                let request = UNNotificationRequest(identifier: "day\(i)_notification", content: content, trigger: validTrigger)
+
+                notificationCenter.add(request) { error in
+                    if let error = error {
+                        print("\(i)일 후 알림 등록 실패: \(error.localizedDescription)")
+                    } else {
+                        print("\(i)일 후 알림 등록 성공")
+                    }
                 }
             }
         }
     }
-    
+
     func fetchItemCount(for date: Date) -> Int {
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
         
