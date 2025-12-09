@@ -7,20 +7,24 @@
 
 import UIKit
 import CoreData
+import WidgetKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
    
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        
+
         UINavigationBar.appearance().tintColor = .black
         UIBarButtonItem.appearance().setBackButtonTitlePositionAdjustment(UIOffset(horizontal: -1000, vertical: 0), for: .default)
         // 네트워크 모니터링 시작
         _ = NetworkSyncManager.shared
-        
+
         // 기존 사용자 마이그레이션 체크
         handleExistingUserMigration()
-        
+
+        // 불필요한 마이그레이션 카테고리 정리 (한 번만 실행)
+        cleanupInvalidCategories()
+
         return true
     }
 
@@ -35,23 +39,219 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Core Data stack (CloudKit 지원)
     lazy var persistentContainer: NSPersistentCloudKitContainer = {
         let container = NSPersistentCloudKitContainer(name: "NewCalendar")
-        
-        // CloudKit 설정
+
+        // CloudKit 설정 (기존 위치 그대로 유지)
         let storeDescription = container.persistentStoreDescriptions.first
         storeDescription?.setOption(true as NSNumber,
                                   forKey: NSPersistentHistoryTrackingKey)
         storeDescription?.setOption(true as NSNumber,
                                   forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-        
+
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
                 fatalError("Unresolved error \(error), \(error.userInfo)")
             }
+
+            // 위젯을 위한 데이터 동기화
+            self.syncDataToAppGroup()
         })
-        
+
         container.viewContext.automaticallyMergesChangesFromParent = true
         return container
     }()
+
+    // MARK: - 불필요한 카테고리 정리
+    /// 마이그레이션 중 생성된 불필요한 카테고리 삭제
+    /// CloudKit 동기화로 인해 재생성될 수 있으므로 주기적으로 실행
+    func cleanupInvalidCategories() {
+        let context = persistentContainer.viewContext
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Category")
+
+        context.perform {
+            do {
+                let categories = try context.fetch(fetchRequest)
+                var deletedCount = 0
+
+                for category in categories {
+                    var shouldDelete = false
+
+                    if let name = category.value(forKey: "name") as? String {
+                        // "마이그레이션 카테고리"로 시작하는 이름 또는 "Unknown" 이름의 카테고리 삭제
+                        if name.hasPrefix("마이그레이션 카테고리") || name == "Unknown" {
+                            shouldDelete = true
+                        }
+                    } else {
+                        // name이 nil인 카테고리도 삭제
+                        shouldDelete = true
+                        print("🗑️ 불필요한 카테고리 삭제: (name이 nil)")
+                    }
+
+                    if shouldDelete {
+                        context.delete(category)
+                        deletedCount += 1
+                        if let name = category.value(forKey: "name") as? String {
+                            print("🗑️ 불필요한 카테고리 삭제: \(name)")
+                        }
+                    }
+                }
+
+                if deletedCount > 0 {
+                    try context.save()
+                    print("✅ 총 \(deletedCount)개의 불필요한 카테고리 삭제 완료")
+
+                    // 위젯 데이터도 업데이트
+                    DispatchQueue.main.async {
+                        self.syncDataToAppGroup()
+
+                        // 위젯 새로고침
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
+                }
+
+            } catch {
+                print("❌ 카테고리 정리 실패: \(error)")
+            }
+        }
+    }
+
+    // MARK: - 위젯 데이터 동기화
+    /// 메인 앱의 CoreData를 App Group 저장소에 복사 (위젯이 읽을 수 있도록)
+    func syncDataToAppGroup() {
+        DispatchQueue.global(qos: .background).async {
+            // App Group 저장소에 데이터 복사
+            self.copyDataToSharedContainer()
+        }
+    }
+
+    private func copyDataToSharedContainer() {
+        guard let sharedURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: "group.Simoni.Amadoo"
+        )?.appendingPathComponent("NewCalendar.sqlite") else {
+            print("❌ App Group URL을 찾을 수 없습니다")
+            return
+        }
+
+        // 이미 복사본이 있으면 업데이트
+        let sharedContainer = NSPersistentContainer(name: "NewCalendar")
+        let sharedStoreDescription = NSPersistentStoreDescription(url: sharedURL)
+        sharedStoreDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        sharedContainer.persistentStoreDescriptions = [sharedStoreDescription]
+
+        sharedContainer.loadPersistentStores { _, error in
+            if let error = error {
+                print("❌ 공유 저장소 로드 실패: \(error)")
+                return
+            }
+
+            // 메인 앱 데이터를 공유 저장소에 복사
+            self.copyAllData(from: self.persistentContainer.viewContext,
+                           to: sharedContainer.viewContext)
+        }
+    }
+
+    private func copyAllData(from sourceContext: NSManagedObjectContext,
+                           to destinationContext: NSManagedObjectContext) {
+        sourceContext.performAndWait {
+            destinationContext.performAndWait {
+                // TimeTable 동기화 (추가/수정/삭제)
+                self.syncEntity(entityName: "TimeTable",
+                               from: sourceContext,
+                               to: destinationContext)
+
+                // Schedule 동기화 (추가/수정/삭제)
+                self.syncEntity(entityName: "Schedule",
+                               from: sourceContext,
+                               to: destinationContext)
+
+                // 저장
+                if destinationContext.hasChanges {
+                    try? destinationContext.save()
+                    print("✅ 위젯 데이터 동기화 완료")
+
+                    // 위젯 타임라인 새로고침
+                    DispatchQueue.main.async {
+                        WidgetCenter.shared.reloadAllTimelines()
+                        print("🔄 위젯 타임라인 새로고침 완료")
+                    }
+                }
+            }
+        }
+    }
+
+    /// 엔티티 동기화 (추가/수정/삭제 모두 처리)
+    private func syncEntity(entityName: String,
+                           from sourceContext: NSManagedObjectContext,
+                           to destinationContext: NSManagedObjectContext) {
+        // 1. 소스(메인 앱)의 모든 데이터 가져오기
+        let sourceFetch = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        guard let sourceObjects = try? sourceContext.fetch(sourceFetch) else {
+            return
+        }
+
+        // 2. 대상(공유 저장소)의 모든 데이터 가져오기
+        let destFetch = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        guard let destObjects = try? destinationContext.fetch(destFetch) else {
+            return
+        }
+
+        // 3. 소스의 각 항목을 대상에 복사 (추가/수정)
+        for sourceObject in sourceObjects {
+            self.copyEntity(sourceObject, to: destinationContext)
+        }
+
+        // 4. 대상에만 있고 소스에 없는 항목 삭제 (삭제된 항목 제거)
+        for destObject in destObjects {
+            let predicate = self.createUniquePredicate(for: destObject)
+            let checkFetch = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            checkFetch.predicate = predicate
+
+            // 소스에 같은 항목이 있는지 확인
+            if let matches = try? sourceContext.fetch(checkFetch), matches.isEmpty {
+                // 소스에 없으면 대상에서 삭제
+                destinationContext.delete(destObject)
+                print("🗑️ 삭제 동기화: \(entityName)")
+            }
+        }
+    }
+
+    private func copyEntity(_ sourceObject: NSManagedObject,
+                          to destinationContext: NSManagedObjectContext) {
+        let entityName = sourceObject.entity.name!
+
+        // 동일한 객체가 이미 있는지 확인
+        let predicate = self.createUniquePredicate(for: sourceObject)
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        fetchRequest.predicate = predicate
+
+        let existingObject = try? destinationContext.fetch(fetchRequest).first
+        let destinationObject = existingObject ?? NSEntityDescription.insertNewObject(
+            forEntityName: entityName,
+            into: destinationContext
+        )
+
+        // 속성 복사
+        for (key, _) in sourceObject.entity.attributesByName {
+            destinationObject.setValue(sourceObject.value(forKey: key), forKey: key)
+        }
+    }
+
+    private func createUniquePredicate(for object: NSManagedObject) -> NSPredicate {
+        let entityName = object.entity.name!
+
+        if entityName == "TimeTable" {
+            let dayOfWeek = object.value(forKey: "dayOfWeek") as? Int16 ?? 0
+            let startTime = object.value(forKey: "startTime") as? String ?? ""
+            return NSPredicate(format: "dayOfWeek == %d AND startTime == %@",
+                             dayOfWeek, startTime)
+        } else if entityName == "Schedule" {
+            let startDay = object.value(forKey: "startDay") as? Date ?? Date()
+            let title = object.value(forKey: "title") as? String ?? ""
+            return NSPredicate(format: "startDay == %@ AND title == %@",
+                             startDay as CVarArg, title)
+        }
+
+        return NSPredicate(value: true)
+    }
 
     // MARK: - Core Data Saving support
     func saveContext() {
@@ -125,51 +325,60 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             switch status {
             case .available:
                 do {
-                    // 카테고리 복사 (완전 안전 모드)
+                    // 카테고리 복사 (유효성 검증 강화)
                     print("=== 카테고리 마이그레이션 시작 ===")
                     for (index, oldCategory) in categories.enumerated() {
                         print("카테고리 \(index + 1) 처리 중...")
-                        
-                        let entity = NSEntityDescription.entity(forEntityName: "Category", in: newContext)!
-                        let newCategory = NSManagedObject(entity: entity, insertInto: newContext)
-                        
-                        // name 속성 처리
+
+                        // name과 color를 미리 검증
+                        var validName: String?
+                        var validColor: String?
+                        var isValid = false
+
+                        // name 검증
                         do {
                             if let name = try oldCategory.value(forKey: "name") as? String,
                                !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                newCategory.setValue(name, forKey: "name")
+                                validName = name
                                 print("카테고리 이름: \(name)")
-                            } else {
-                                throw NSError(domain: "Migration", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid name"])
                             }
                         } catch {
-                            print("카테고리 name 복사 실패 - 기본값 설정: \(error)")
-                            newCategory.setValue("마이그레이션 카테고리 \(index + 1)", forKey: "name")
+                            print("카테고리 name 읽기 실패: \(error)")
                         }
-                        
-                        // color 속성 처리
+
+                        // color 검증
                         do {
                             if let color = try oldCategory.value(forKey: "color") as? String,
                                !color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                newCategory.setValue(color, forKey: "color")
-                            } else {
-                                throw NSError(domain: "Migration", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid color"])
+                                validColor = color
                             }
                         } catch {
-                            print("카테고리 color 복사 실패 - 기본값 설정: \(error)")
-                            newCategory.setValue("#808080", forKey: "color")
+                            print("카테고리 color 읽기 실패: \(error)")
                         }
-                        
-                        // isDefault 속성 처리
-                        do {
-                            if let isDefault = try oldCategory.value(forKey: "isDefault") as? Bool {
-                                newCategory.setValue(isDefault, forKey: "isDefault")
-                            } else {
+
+                        // 유효한 name과 color가 모두 있을 때만 카테고리 생성
+                        if let name = validName, let color = validColor {
+                            let entity = NSEntityDescription.entity(forEntityName: "Category", in: newContext)!
+                            let newCategory = NSManagedObject(entity: entity, insertInto: newContext)
+
+                            newCategory.setValue(name, forKey: "name")
+                            newCategory.setValue(color, forKey: "color")
+
+                            // isDefault 속성 처리
+                            do {
+                                if let isDefault = try oldCategory.value(forKey: "isDefault") as? Bool {
+                                    newCategory.setValue(isDefault, forKey: "isDefault")
+                                } else {
+                                    newCategory.setValue(false, forKey: "isDefault")
+                                }
+                            } catch {
+                                print("카테고리 isDefault 복사 실패 - 기본값 설정: \(error)")
                                 newCategory.setValue(false, forKey: "isDefault")
                             }
-                        } catch {
-                            print("카테고리 isDefault 복사 실패 - 기본값 설정: \(error)")
-                            newCategory.setValue(false, forKey: "isDefault")
+
+                            print("✅ 카테고리 '\(name)' 마이그레이션 성공")
+                        } else {
+                            print("⚠️ 카테고리 \(index + 1) 스킵 - 유효하지 않은 데이터 (name: \(validName ?? "nil"), color: \(validColor ?? "nil"))")
                         }
                     }
                     

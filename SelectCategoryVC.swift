@@ -22,9 +22,20 @@ class SelectCategoryVC: UIViewController {
         super.viewDidLoad()
         tableView.dataSource = self
         tableView.delegate = self
-        vm.fetchCategories { [weak self] in
-            DispatchQueue.main.async {
-                self?.tableView.reloadData()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        // 불필요한 카테고리 정리 (CloudKit 동기화로 재생성될 수 있음)
+        (UIApplication.shared.delegate as? AppDelegate)?.cleanupInvalidCategories()
+
+        // 약간의 딜레이 후 카테고리 fetch (정리가 먼저 완료되도록)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.vm.fetchCategories { [weak self] in
+                DispatchQueue.main.async {
+                    self?.tableView.reloadData()
+                }
             }
         }
     }

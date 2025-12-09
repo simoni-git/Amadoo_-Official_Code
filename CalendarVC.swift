@@ -70,7 +70,7 @@ class CalendarVC: UIViewController {
         
         // configure() 메서드에 추가된 부분
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        longPressGesture.minimumPressDuration = 0.5  // 0.5초 이상 누르면 실행
+        longPressGesture.minimumPressDuration = 0.3  // 0.3초 누르면 실행
         collectionView.addGestureRecognizer(longPressGesture)
         
         NotificationCenter.default.addObserver(self, selector: #selector(reloadCalendar), name: NSNotification.Name(Constants.NotificationName.scheduleSaved), object: nil)

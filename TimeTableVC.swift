@@ -20,25 +20,30 @@ class TimeTableVC: UIViewController {
     
     private let startHourKey = "TimeTable_StartHour"
     private let endHourKey = "TimeTable_EndHour"
-    
-    // 시간 범위 - UserDefaults에서 불러오기
+
+    // App Group Shared UserDefaults
+    private var sharedDefaults: UserDefaults? {
+        return UserDefaults(suiteName: "group.Simoni.Amadoo")
+    }
+
+    // 시간 범위 - App Group UserDefaults에서 불러오기 (위젯과 공유)
     var startHour: Int {
         get {
-            let saved = UserDefaults.standard.integer(forKey: startHourKey)
+            let saved = sharedDefaults?.integer(forKey: startHourKey) ?? 0
             return saved != 0 ? saved : 9 // 저장된 값이 없으면 기본값 9
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: startHourKey)
+            sharedDefaults?.set(newValue, forKey: startHourKey)
         }
     }
-    
+
     var endHour: Int {
         get {
-            let saved = UserDefaults.standard.integer(forKey: endHourKey)
+            let saved = sharedDefaults?.integer(forKey: endHourKey) ?? 0
             return saved != 0 ? saved : 16 // 저장된 값이 없으면 기본값 16
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: endHourKey)
+            sharedDefaults?.set(newValue, forKey: endHourKey)
         }
     }
     
@@ -74,6 +79,7 @@ class TimeTableVC: UIViewController {
         loadSavedTimeRange()
         // 롱프레스 제스처 추가
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        longPressGesture.minimumPressDuration = 0.3  // 0.3초 누르면 실행
         collectionView.addGestureRecognizer(longPressGesture)
         // NotificationCenter observer 추가
         NotificationCenter.default.addObserver(
@@ -365,6 +371,10 @@ class TimeTableVC: UIViewController {
     @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
         // began 상태에서만 실행 (중복 방지)
         guard gesture.state == .began else { return }
+
+        // 햅틱 피드백 (진동)
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
         
         let location = gesture.location(in: collectionView)
         
