@@ -19,7 +19,7 @@
 
 ### 💡 개발 배경
 
-- **v1.0 → v1.5.0 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 9회 업데이트
+- **v1.0 → v1.4.6 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 7회 업데이트
 - **Clean Architecture 도입**: 유지보수성과 테스트 용이성을 위한 아키텍처 전면 리팩토링
 - **실사용자 피드백 기반 개선**: App Store 배포 후 사용자 요구사항을 반영한 지속적인 기능 개선
 - **기술 스택 업그레이드**: MVC → MVVM → Clean Architecture + MVVM
@@ -153,19 +153,6 @@ final class DIContainer {
 | **DiffableDataSource** | 효율적인 컬렉션/테이블뷰 데이터 관리 |
 | **Compositional Layout** | 유연한 컬렉션뷰 레이아웃 |
 | **WidgetKit** | 홈 화면 위젯 |
-
-### **프로젝트 규모**
-| 항목 | 수치 |
-|------|------|
-| **코드 라인** | 약 7,000줄의 Swift 코드 |
-| **화면 수** | 20개 이상의 ViewController |
-| **ViewModel** | 16개 |
-| **UseCase** | 12개 |
-| **Repository** | 4개 |
-| **Entity** | 5개의 도메인 모델 |
-| **위젯** | 2개 (달력, 시간표) |
-| **Unit Tests** | UseCase 단위 테스트 |
-| **외부 의존성** | 없음 (순수 iOS SDK만 사용) |
 
 ---
 
@@ -458,7 +445,7 @@ class ScheduleUseCaseTests: XCTestCase {
 
 ---
 
-### v1.5.0 (Latest) - Clean Architecture 리팩토링
+### 1.4.6 (Latest) - Clean Architecture 리팩토링
 
 **주요 변경**
 - Clean Architecture + MVVM 패턴 전면 도입
