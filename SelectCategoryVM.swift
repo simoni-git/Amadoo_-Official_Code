@@ -6,51 +6,35 @@
 //
 
 import UIKit
-import CoreData
 
 class SelectCategoryVM {
-    
+
     var delegate: SelectCategoryVCDelegate?
-    var categories: [NSManagedObject] = []
-    let coreDataManager = CoreDataManager.shared
-    
-    func fetchCategories(completion: @escaping () -> Void) {
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Category")
-        
-        do {
-            let allCategories = try coreDataManager.context.fetch(fetchRequest)
-            
-            // "할 일"을 찾아서 맨 앞으로 이동 (CategoryVM과 동일한 로직)
-            var todoCategory: NSManagedObject?
-            var otherCategories: [NSManagedObject] = []
-            
-            for category in allCategories {
-                let name = category.value(forKey: "name") as? String ?? ""
-                if name == "할 일" {
-                    todoCategory = category
-                } else {
-                    otherCategories.append(category)
-                }
-            }
-            
-            // 나머지 카테고리들은 이름 순으로 정렬
-            otherCategories.sort { category1, category2 in
-                let name1 = category1.value(forKey: "name") as? String ?? ""
-                let name2 = category2.value(forKey: "name") as? String ?? ""
-                return name1 < name2
-            }
-            
-            // "할 일"을 맨 앞에 배치
-            categories = []
-            if let todo = todoCategory {
-                categories.append(todo)
-            }
-            categories.append(contentsOf: otherCategories)
-            
+
+    // MARK: - Clean Architecture Dependencies
+    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
+
+    /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
+    private(set) var categoryList: [CategoryItem] = []
+
+    /// 의존성 주입 메서드
+    func injectDependencies(
+        fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
+    ) {
+        self.fetchCategoriesUseCase = fetchCategoriesUseCase
+    }
+
+    // MARK: - UseCase Methods
+
+    /// UseCase를 통한 카테고리 조회
+    func fetchCategoriesUsingUseCase(completion: @escaping () -> Void) {
+        guard let useCase = fetchCategoriesUseCase else {
+            categoryList = []
             completion()
-        } catch {
-            categories = []
-            completion()
+            return
         }
+
+        categoryList = useCase.execute()
+        completion()
     }
 }

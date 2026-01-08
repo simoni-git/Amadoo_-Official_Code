@@ -19,6 +19,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 네트워크 모니터링 시작
         _ = NetworkSyncManager.shared
 
+        // UserNotificationManager 의존성 주입
+        UserNotificationManager.shared.injectDependencies(
+            fetchSchedulesUseCase: DIContainer.shared.makeFetchSchedulesUseCase()
+        )
+
         // 기존 사용자 마이그레이션 체크
         handleExistingUserMigration()
 

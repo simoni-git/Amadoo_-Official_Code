@@ -15,6 +15,50 @@ class DateCell: UICollectionViewCell {
     static var occupiedIndexesByDate: [Date: [Int: String]] = [:]
     private let maxDisplayEvents = Constants.Calendar.maxDisplayedEvents
 
+    // MARK: - Configure with CalendarDateItem (DiffableDataSource용)
+
+    func configure(with item: CalendarDateItem) {
+        // 날짜 표시
+        dateLabel.text = "\(Calendar.current.component(.day, from: item.date))"
+        dateLabel.alpha = item.isCurrentMonth ? 1.0 : 0.3
+
+        // 요일별 색상
+        switch item.dayOfWeek {
+        case 0: dateLabel.textColor = .red     // 일요일
+        case 6: dateLabel.textColor = .blue    // 토요일
+        default: dateLabel.textColor = .black
+        }
+
+        // 오늘 표시
+        if item.isToday {
+            dateLabel.backgroundColor = UIColor.fromHexString("E6DFF1")
+            dateLabel.layer.cornerRadius = 5
+            dateLabel.layer.masksToBounds = true
+        } else {
+            dateLabel.backgroundColor = .clear
+            dateLabel.layer.masksToBounds = false
+        }
+
+        // 이벤트 표시 - ScheduleItem 배열을 기존 형식으로 변환
+        let events = item.events.map { schedule -> (title: String, color: UIColor, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date) in
+            let isPeriod = schedule.buttonType == .periodDay
+            let isStart = Calendar.current.isDate(item.date, inSameDayAs: schedule.startDay)
+            let isEnd = Calendar.current.isDate(item.date, inSameDayAs: schedule.endDay)
+
+            return (
+                title: schedule.title,
+                color: UIColor.fromHexString(schedule.categoryColor),
+                isPeriod: isPeriod,
+                isStart: isStart,
+                isEnd: isEnd,
+                startDate: schedule.startDay,
+                endDate: schedule.endDay
+            )
+        }
+
+        configure(with: events, for: item.date)
+    }
+
     /// 시작일부터 종료일까지의 날짜 배열을 생성 (성능 최적화)
     private func dateRange(from startDate: Date, to endDate: Date) -> [Date] {
         var dates: [Date] = []

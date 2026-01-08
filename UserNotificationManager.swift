@@ -7,15 +7,17 @@
 
 import UIKit
 import UserNotifications
-import CoreData
 
 class UserNotificationManager {
     static let shared = UserNotificationManager()
     private init() {}
 
-    // CoreDataManager를 재사용하여 중복 제거
-    private var context: NSManagedObjectContext {
-        return CoreDataManager.shared.context
+    // MARK: - Clean Architecture Dependencies
+    private var fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol?
+
+    /// 의존성 주입 메서드
+    func injectDependencies(fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol) {
+        self.fetchSchedulesUseCase = fetchSchedulesUseCase
     }
     
     func checkNotificationPermission() {
@@ -120,22 +122,14 @@ class UserNotificationManager {
     }
 
     func fetchItemCount(for date: Date) -> Int {
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
-        
-        // 해당 날짜와 정확히 일치하는 날짜를 찾기 위한 predicate 설정
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        
-        fetchRequest.predicate = NSPredicate(format: "date == %@", startOfDay as CVarArg)
-        
-        do {
-            let results = try context.fetch(fetchRequest)
-            print("일정의 갯수는 => \(results.count)")
-            return results.count  // 해당 날짜에 해당하는 일정의 개수를 반환
-        } catch {
-            print("일정 개수 가져오기 실패: \(error.localizedDescription)")
-            return 0  // 에러가 나면 0개로 간주
+        guard let useCase = fetchSchedulesUseCase else {
+            print("⚠️ FetchSchedulesUseCase가 주입되지 않음")
+            return 0
         }
+
+        let schedules = useCase.execute(for: date)
+        print("일정의 갯수는 => \(schedules.count)")
+        return schedules.count
     }
 
 }

@@ -6,21 +6,43 @@
 //
 
 import UIKit
-import CoreData
 
 class AddCheckVerMemoVM {
-    
-    let coreDataManager = CoreDataManager.shared
+
     var delegate: AddCheckVerMemoDelegate?
     var memoType: String = "check"
     var checkListItems: [String] = [""]
-    
-    func checkListSetValue(title: String , name: String , isComplete: Bool , memoType: String) {
-        let newCheckListItem = NSEntityDescription.insertNewObject(forEntityName: "CheckList", into: coreDataManager.context)
-        newCheckListItem.setValue(title, forKey: "title")
-        newCheckListItem.setValue(name, forKey: "name")
-        newCheckListItem.setValue(false, forKey: "isComplete")
-        newCheckListItem.setValue(memoType, forKey: "memoType")
+
+    // MARK: - Clean Architecture Dependencies
+    private var saveMemoUseCase: SaveMemoUseCaseProtocol?
+
+    /// 의존성 주입 메서드
+    func injectDependencies(
+        saveMemoUseCase: SaveMemoUseCaseProtocol
+    ) {
+        self.saveMemoUseCase = saveMemoUseCase
     }
 
+    // MARK: - UseCase Methods
+
+    /// UseCase를 통한 체크리스트 아이템 저장
+    func saveCheckListUsingUseCase(title: String, name: String, isComplete: Bool) -> Result<CheckListItem, Error>? {
+        guard let useCase = saveMemoUseCase else { return nil }
+
+        let item = CheckListItem(title: title, name: name, isComplete: isComplete, memoType: memoType)
+        return useCase.executeSaveCheckList(item)
+    }
+
+    /// UseCase를 통한 여러 체크리스트 아이템 저장
+    func saveAllCheckListItemsUsingUseCase(title: String) -> [Result<CheckListItem, Error>] {
+        guard let useCase = saveMemoUseCase else { return [] }
+
+        var results: [Result<CheckListItem, Error>] = []
+        for name in checkListItems where !name.isEmpty {
+            let item = CheckListItem(title: title, name: name, isComplete: false, memoType: memoType)
+            let result = useCase.executeSaveCheckList(item)
+            results.append(result)
+        }
+        return results
+    }
 }

@@ -7,20 +7,92 @@
 
 
 import Foundation
-import CoreData
 
 class EditTimeVM {
-    var timetable: NSManagedObject
+    var originalItem: TimeTableItem
     var title: String
     var startTime: String
     var endTime: String
     var memo: String?
     var color: String
-    var selectedColorCode: String  // ⭐ 추가
+    var selectedColorCode: String
     var dayOfWeek: Int
     var minimumHour: Int
     var maximumHour: Int
-    
+
+    // MARK: - Clean Architecture Dependencies
+    private var saveTimeTableUseCase: SaveTimeTableUseCaseProtocol?
+    private var deleteTimeTableUseCase: DeleteTimeTableUseCaseProtocol?
+    private var fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol?
+
+    /// 의존성 주입 메서드
+    func injectDependencies(
+        saveTimeTableUseCase: SaveTimeTableUseCaseProtocol,
+        deleteTimeTableUseCase: DeleteTimeTableUseCaseProtocol,
+        fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol
+    ) {
+        self.saveTimeTableUseCase = saveTimeTableUseCase
+        self.deleteTimeTableUseCase = deleteTimeTableUseCase
+        self.fetchTimeTableUseCase = fetchTimeTableUseCase
+    }
+
+    // MARK: - UseCase Methods
+
+    /// UseCase를 통한 시간표 수정
+    func updateTimeTable(title: String, memo: String?, startTime: String, endTime: String, color: String) -> Result<TimeTableItem, Error>? {
+        guard let useCase = saveTimeTableUseCase else { return nil }
+
+        // 기존 항목 삭제 후 새로 저장 (시간이 변경될 수 있으므로)
+        _ = deleteTimeTableUseCase?.execute(item: originalItem)
+
+        let item = TimeTableItem(
+            dayOfWeek: Int16(dayOfWeek),
+            startTime: startTime,
+            endTime: endTime,
+            title: title,
+            memo: memo,
+            color: color
+        )
+        return useCase.execute(item: item)
+    }
+
+    /// UseCase를 통한 시간표 삭제
+    func deleteTimeTable() -> Result<Void, Error>? {
+        guard let useCase = deleteTimeTableUseCase else { return nil }
+        return useCase.execute(item: originalItem)
+    }
+
+    /// 시간 겹침 확인
+    func isTimeOverlapping(newStart: String, newEnd: String) -> Bool {
+        guard let useCase = fetchTimeTableUseCase else { return false }
+
+        let allItems = useCase.execute()
+
+        for item in allItems {
+            // 같은 요일만 확인
+            if Int(item.dayOfWeek) != dayOfWeek {
+                continue
+            }
+
+            // 자기 자신은 제외 (원본과 동일한 시간표)
+            if item.startTime == originalItem.startTime &&
+               item.endTime == originalItem.endTime &&
+               Int(item.dayOfWeek) == Int(originalItem.dayOfWeek) {
+                continue
+            }
+
+            // 시간 겹침 체크
+            if (newStart >= item.startTime && newStart < item.endTime) ||
+               (newEnd > item.startTime && newEnd <= item.endTime) ||
+               (newStart <= item.startTime && newEnd >= item.endTime) {
+                return true
+            }
+        }
+        return false
+    }
+
+    // MARK: - Properties
+
     let colors = [
         (name: "프렌치로즈", code: "ECBDBF"),
         (name: "라이트오렌지", code: "FFB124"),
@@ -31,19 +103,19 @@ class EditTimeVM {
         (name: "소프트바이올렛", code: "A495C6"),
         (name: "파스텔브라운", code: "BBA79C")
     ]
-    
-    init(timetable: NSManagedObject, minimumHour: Int, maximumHour: Int) {
-        self.timetable = timetable
+
+    init(timetable: TimeTableItem, minimumHour: Int, maximumHour: Int) {
+        self.originalItem = timetable
         self.minimumHour = minimumHour
         self.maximumHour = maximumHour
-        
-        self.title = timetable.value(forKey: "title") as? String ?? ""
-        self.startTime = timetable.value(forKey: "startTime") as? String ?? "09:00"
-        self.endTime = timetable.value(forKey: "endTime") as? String ?? "10:00"
-        self.memo = timetable.value(forKey: "memo") as? String
-        self.color = timetable.value(forKey: "color") as? String ?? "ECBDBF"
-        self.selectedColorCode = self.color 
-        self.dayOfWeek = Int(timetable.value(forKey: "dayOfWeek") as? Int16 ?? 0)
+
+        self.title = timetable.title
+        self.startTime = timetable.startTime
+        self.endTime = timetable.endTime
+        self.memo = timetable.memo
+        self.color = timetable.color
+        self.selectedColorCode = timetable.color
+        self.dayOfWeek = Int(timetable.dayOfWeek)
     }
     
     // 시간 문자열을 Date로 변환

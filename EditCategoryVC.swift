@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 
 protocol EditCategoryVCDelegate: AnyObject {
     func didUpdateCategory()
@@ -35,6 +34,7 @@ class EditCategoryVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        DIContainer.shared.injectEditCategoryVM(vm)
         configure()
         setupTextField()
         setupGestures()
@@ -94,15 +94,14 @@ class EditCategoryVC: UIViewController {
     
     // MARK: - Edit Mode
     private func fetchEditTarget() {
-        guard let result = vm.fetchCategory(name: vm.originCategoryName, color: vm.originSelectColor) else {
+        // 이미 originCategoryName과 originSelectColor가 설정된 상태로 호출됨
+        guard let name = vm.originCategoryName, let color = vm.originSelectColor else {
             print("맞는 카테고리 정보가 없습니다")
             return
         }
-        
-        categoryTextField.text = result.name
-        vm.originCategoryName = result.name
-        vm.originSelectColor = result.color
-        updateColorSelection(for: result.color)
+
+        categoryTextField.text = name
+        updateColorSelection(for: color)
     }
     
     // MARK: - State Management
@@ -179,45 +178,35 @@ class EditCategoryVC: UIViewController {
     }
     
     private func saveNewCategory(categoryName: String, selectColor: String) {
-        vm.saveCategory(categoryName: categoryName, selectColor: selectColor)
-        
-        if vm.isAddMode == true {
-            vm.addForSelectCategoryVCDelegate?.updateCategory()
-            dismiss(animated: true)
-        } else {
-            vm.delegate?.didUpdateCategory()
-            navigationController?.popViewController(animated: true)
+        // UseCase를 통한 카테고리 저장
+        if let result = vm.saveCategoryUsingUseCase(name: categoryName, color: selectColor) {
+            switch result {
+            case .success:
+                if vm.isAddMode == true {
+                    vm.addForSelectCategoryVCDelegate?.updateCategory()
+                    dismiss(animated: true)
+                } else {
+                    vm.delegate?.didUpdateCategory()
+                    navigationController?.popViewController(animated: true)
+                }
+            case .failure:
+                showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
+            }
         }
     }
     
     private func updateCategory(categoryName: String, selectColor: String) {
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "Category")
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "name == %@", vm.originCategoryName ?? ""),
-            NSPredicate(format: "color == %@", vm.originSelectColor ?? "")
-        ])
-        
-        do {
-            let fetchResults = try vm.coreDataManager.context.fetch(fetchRequest)
-            
-            guard let target = fetchResults.first as? NSManagedObject else {
-                showAlert(title: "오류", message: "수정할 카테고리를 찾을 수 없습니다.")
-                return
+        // UseCase를 통한 카테고리 수정
+        if let result = vm.updateCategoryUsingUseCase(name: categoryName, color: selectColor) {
+            switch result {
+            case .success:
+                vm.delegate?.didUpdateCategory()
+                navigationController?.popViewController(animated: true)
+            case .failure:
+                showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
             }
-            
-            if categoryName != vm.originCategoryName {
-                target.setValue(categoryName, forKey: "name")
-            }
-            if selectColor != vm.originSelectColor {
-                target.setValue(selectColor, forKey: "color")
-            }
-            
-            try vm.coreDataManager.context.save()
-            vm.delegate?.didUpdateCategory()
-            navigationController?.popViewController(animated: true)
-            
-        } catch {
-            showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
+        } else {
+            showAlert(title: "오류", message: "수정할 카테고리를 찾을 수 없습니다.")
         }
     }
     

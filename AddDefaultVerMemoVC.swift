@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 
 class AddDefaultVerMemoVC: UIViewController {
     
@@ -20,6 +19,7 @@ class AddDefaultVerMemoVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        DIContainer.shared.injectAddDefaultVerMemoVM(vm)
         configure()
         setupKeyboardNotifications()
     }
@@ -110,15 +110,20 @@ class AddDefaultVerMemoVC: UIViewController {
 
     @IBAction func tapRegisterBtn(_ sender: UIButton) {
         if vm.isEditMode == false {
-            guard let title = titleTextField.text , let memoText = memoTextView.text , !title.isEmpty && !memoText.isEmpty else {
+            guard let title = titleTextField.text, let memoText = memoTextView.text, !title.isEmpty && !memoText.isEmpty else {
                 presentWarning("제목과 메모글을 모두 작성해 주세요")
                 return
             }
-            vm.memoSetValue(title: title, memoText: memoText, memoType: vm.memoType)
-            vm.coreDataManager.saveContext()
-            vm.delegate?.didSaveDefaultVerMemoItems()
-            navigationController?.popViewController(animated: true)
-            
+            // UseCase를 통한 메모 저장
+            if let result = vm.saveMemoUsingUseCase(title: title, memoText: memoText) {
+                switch result {
+                case .success:
+                    vm.delegate?.didSaveDefaultVerMemoItems()
+                    navigationController?.popViewController(animated: true)
+                case .failure:
+                    presentWarning("저장에 실패했습니다.")
+                }
+            }
         } else {
             guard let editTitle = vm.editModeTitleTextFieldText,
                   let editMemoText = vm.editModeMemoTextViewText,
@@ -126,25 +131,17 @@ class AddDefaultVerMemoVC: UIViewController {
                   let memoText = memoTextView.text else {
                 return
             }
-            
+
             if editTitle != title || editMemoText != memoText {
-                let fetchRequest: NSFetchRequest<Memo> = Memo.fetchRequest()
-                fetchRequest.predicate = NSPredicate(format: "title == %@ AND memoText == %@", editTitle, editMemoText)
-                
-                do {
-                    let result = try vm.coreDataManager.context.fetch(fetchRequest)
-                    if let memoToEdit = result.first {
-                        memoToEdit.title = title
-                        memoToEdit.memoText = memoText
-                        vm.coreDataManager.saveContext()
+                // UseCase를 통한 메모 수정
+                if let result = vm.updateMemoUsingUseCase(title: title, memoText: memoText) {
+                    switch result {
+                    case .success:
                         vm.delegate?.didSaveDefaultVerMemoItems()
                         navigationController?.popToRootViewController(animated: true)
-                        
-                    } else {
+                    case .failure:
                         presentWarning("편집할 메모를 찾을 수 없습니다.")
                     }
-                } catch {
-                    
                 }
             } else {
                 presentWarning("변경된 부분이 없는 것 같아요")

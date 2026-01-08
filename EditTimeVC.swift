@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 
 class EditTimeVC: UIViewController {
     @IBOutlet weak var titleTextField: UITextField!
@@ -32,6 +31,9 @@ class EditTimeVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        if let vm = vm {
+            DIContainer.shared.injectEditTimeVM(vm)
+        }
         setupUI()
         setupColorButtons()
         loadData()
@@ -190,81 +192,56 @@ class EditTimeVC: UIViewController {
     
     private func deleteTimetable() {
         guard let vm = vm else { return }
-        
-        let context = CoreDataManager.shared.context
-        context.delete(vm.timetable)
-        CoreDataManager.shared.saveContext()
-        
-        print("시간표 삭제 완료")
-        
-        // NotificationCenter로 리로드 알림
-        NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
-        dismiss(animated: true)
+
+        if let result = vm.deleteTimeTable() {
+            switch result {
+            case .success:
+                print("시간표 삭제 완료")
+                NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
+                dismiss(animated: true)
+            case .failure(let error):
+                print("시간표 삭제 실패: \(error)")
+            }
+        }
     }
-    
+
     private func updateTimetable(title: String, colorCode: String) {
         guard let vm = vm else { return }
-        
+
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
-        
-        vm.timetable.setValue(title, forKey: "title")
-        vm.timetable.setValue(formatter.string(from: startDatePicker.date), forKey: "startTime")
-        vm.timetable.setValue(formatter.string(from: endDatePicker.date), forKey: "endTime")
-        vm.timetable.setValue(memoTextField.text, forKey: "memo")
-        vm.timetable.setValue(colorCode, forKey: "color")
-        
-        CoreDataManager.shared.saveContext()
-        
-        print("시간표 수정 완료")
-        
-        // NotificationCenter로 리로드 알림
-        NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
-        dismiss(animated: true)
+
+        let startTime = formatter.string(from: startDatePicker.date)
+        let endTime = formatter.string(from: endDatePicker.date)
+
+        if let result = vm.updateTimeTable(
+            title: title,
+            memo: memoTextField.text,
+            startTime: startTime,
+            endTime: endTime,
+            color: colorCode
+        ) {
+            switch result {
+            case .success:
+                print("시간표 수정 완료")
+                NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
+                dismiss(animated: true)
+            case .failure(let error):
+                print("시간표 수정 실패: \(error)")
+            }
+        }
     }
-    
+
     private func isTimeOverlapping() -> Bool {
         guard let vm = vm else { return false }
-        
-        let context = CoreDataManager.shared.context
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "TimeTable")
-        
-        // 같은 요일의 시간표만 가져오기
-        fetchRequest.predicate = NSPredicate(format: "dayOfWeek == %d", vm.dayOfWeek)
-        
-        do {
-            let existingTimetables = try context.fetch(fetchRequest)
-            
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            
-            let newStart = formatter.string(from: startDatePicker.date)
-            let newEnd = formatter.string(from: endDatePicker.date)
-            
-            for timetable in existingTimetables {
-                // 자기 자신은 제외
-                if timetable == vm.timetable {
-                    continue
-                }
-                
-                guard let existingStart = timetable.value(forKey: "startTime") as? String,
-                      let existingEnd = timetable.value(forKey: "endTime") as? String else {
-                    continue
-                }
-                
-                // 시간 겹침 체크
-                if (newStart >= existingStart && newStart < existingEnd) ||
-                    (newEnd > existingStart && newEnd <= existingEnd) ||
-                    (newStart <= existingStart && newEnd >= existingEnd) {
-                    return true
-                }
-            }
-            
-            return false
-        } catch {
-            print("시간표 조회 실패: \(error)")
-            return false
-        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+
+        let newStart = formatter.string(from: startDatePicker.date)
+        let newEnd = formatter.string(from: endDatePicker.date)
+
+        return vm.isTimeOverlapping(newStart: newStart, newEnd: newEnd)
     }
     
     private func showWarning(message: String) {

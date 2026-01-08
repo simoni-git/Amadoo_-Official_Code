@@ -6,10 +6,14 @@
 //
 
 import UIKit
-import CoreData
 
 class CalendarVC: UIViewController {
-    
+
+    // MARK: - Section for DiffableDataSource
+    enum Section: Hashable {
+        case main
+    }
+
     var vm = CalendarVM()
     @IBOutlet weak var dateLabel: UILabel!
     @IBOutlet weak var categoryBtn: UIButton!
@@ -17,7 +21,10 @@ class CalendarVC: UIViewController {
     @IBOutlet weak var todayBtn: UIButton!
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
-    
+
+    // MARK: - DiffableDataSource
+    private var dataSource: UICollectionViewDiffableDataSource<Section, CalendarDateItem>!
+
     private var cloudKitUpdateTimer: Timer?
     private var dragStartIndexPath: IndexPath?
     private var dragEndIndexPath: IndexPath?
@@ -25,25 +32,118 @@ class CalendarVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        collectionView.dataSource = self
+        DIContainer.shared.injectCalendarVM(vm)
+        setupCollectionView()
+        configureDataSource()
         collectionView.delegate = self
         configure()
+        applySnapshot()
         // 마이그레이션 상태 확인
         checkMigrationStatus()
-        // 디버깅: 동기화 상태 확인
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-            let scheduleRequest = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
-            let categoryRequest = NSFetchRequest<NSManagedObject>(entityName: "Category")
-            
-            do {
-                let scheduleCount = try CoreDataManager.shared.context.fetch(scheduleRequest).count
-                let categoryCount = try CoreDataManager.shared.context.fetch(categoryRequest).count
-                print("🔍 현재 저장된 일정: \(scheduleCount)개, 카테고리: \(categoryCount)개")
-            } catch {
-                print("🔍 데이터 확인 실패: \(error)")
-            }
+    }
+
+    // MARK: - CompositionalLayout 설정
+    private func setupCollectionView() {
+        collectionView.collectionViewLayout = createLayout()
+        collectionView.layer.cornerRadius = Constants.UI.standardCornerRadius
+    }
+
+    private func createLayout() -> UICollectionViewCompositionalLayout {
+        return UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
+            guard let self = self else { return nil }
+
+            let numberOfRows = CGFloat(DateHelper.shared.numberOfRowsForCalendar(currentMonth: self.vm.currentMonth))
+
+            // 아이템: 너비 1/7, 높이는 그룹 높이
+            let itemSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0 / 7.0),
+                heightDimension: .fractionalHeight(1.0)
+            )
+            let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+            // 그룹: 한 주 (7일)
+            let groupSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0),
+                heightDimension: .fractionalHeight(1.0 / numberOfRows)
+            )
+            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+            let section = NSCollectionLayoutSection(group: group)
+            return section
         }
-        
+    }
+
+    // MARK: - DiffableDataSource 설정
+    private func configureDataSource() {
+        dataSource = UICollectionViewDiffableDataSource<Section, CalendarDateItem>(
+            collectionView: collectionView
+        ) { collectionView, indexPath, item in
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: "DateCell",
+                for: indexPath
+            ) as? DateCell else {
+                return UICollectionViewCell()
+            }
+
+            cell.configure(with: item)
+            return cell
+        }
+    }
+
+    // MARK: - Snapshot 적용
+    private func applySnapshot(animatingDifferences: Bool = false) {
+        DateCell.occupiedIndexesByDate.removeAll()
+        DateCell.globalEventIndexes.removeAll()
+
+        var snapshot = NSDiffableDataSourceSnapshot<Section, CalendarDateItem>()
+        snapshot.appendSections([.main])
+
+        let items = generateCalendarItems()
+        snapshot.appendItems(items, toSection: .main)
+
+        dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+    }
+
+    private func generateCalendarItems() -> [CalendarDateItem] {
+        var items: [CalendarDateItem] = []
+
+        let numberOfCells = calculateNumberOfCells()
+
+        for index in 0..<numberOfCells {
+            guard let date = DateHelper.shared.dateForCalendarCell(at: index, currentMonth: vm.currentMonth) else {
+                continue
+            }
+
+            let isCurrentMonth = DateHelper.shared.isDateInCurrentMonth(date, currentMonth: vm.currentMonth)
+            let isToday = Calendar.current.isDateInToday(date)
+            let dayOfWeek = Calendar.current.component(.weekday, from: date) - 1  // 0=일, 6=토
+
+            // ScheduleItem 배열 가져오기
+            let events = vm.getScheduleItems(for: date)
+
+            let item = CalendarDateItem(
+                date: date,
+                isCurrentMonth: isCurrentMonth,
+                isToday: isToday,
+                dayOfWeek: dayOfWeek,
+                events: events
+            )
+            items.append(item)
+        }
+
+        return items
+    }
+
+    private func calculateNumberOfCells() -> Int {
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
+        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
+        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
+        let numberOfDays = range.count
+
+        let totalCells = firstWeekday + numberOfDays
+        let numberOfRows = Int(ceil(Double(totalCells) / 7.0))
+
+        return numberOfRows * 7
     }
     
     override func viewDidLayoutSubviews() {
@@ -54,36 +154,34 @@ class CalendarVC: UIViewController {
     
     private func configure() {
         todayBtn.layer.cornerRadius = Constants.UI.standardCornerRadius
-        collectionView.layer.cornerRadius = Constants.UI.standardCornerRadius
         updateMonthLabel()
         vm.addDefaultCategory()
-        vm.fetchSavedEvents()
+        vm.fetchSchedules()  // Domain Layer 데이터 로드
         vm.userNotificationManager.checkNotificationPermission()
         collectionView.isScrollEnabled = false  // 스크롤 비활성화
+
         let leftSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
         leftSwipe.direction = .left
         collectionView.addGestureRecognizer(leftSwipe)
-        
+
         let rightSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
         rightSwipe.direction = .right
         collectionView.addGestureRecognizer(rightSwipe)
-        
-        // configure() 메서드에 추가된 부분
+
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        longPressGesture.minimumPressDuration = 0.3  // 0.3초 누르면 실행
+        longPressGesture.minimumPressDuration = 0.3
         collectionView.addGestureRecognizer(longPressGesture)
-        
+
         NotificationCenter.default.addObserver(self, selector: #selector(reloadCalendar), name: NSNotification.Name(Constants.NotificationName.scheduleSaved), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(eventDeleted), name: NSNotification.Name(Constants.NotificationName.eventDeleted), object: nil)
-        
-        // CloudKit 및 네트워크 관련 알림 추가
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleCloudKitUpdate),
             name: .cloudKitDataUpdated,
             object: nil
         )
-        
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleNetworkReconnection),
@@ -93,17 +191,13 @@ class CalendarVC: UIViewController {
     }
     
     private func refreshCalendar() {
-        DateCell.occupiedIndexesByDate.removeAll()
-        DateCell.globalEventIndexes.removeAll()  // 메모리 누수 방지
-        // 애니메이션 없이 새로고침
-        // 애니메이션을 완전히 비활성화
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        UIView.performWithoutAnimation {
-            collectionView.reloadData()
-        }
-        CATransaction.commit()
-        // 스크롤 동작 업데이트 (월이 변경되면 필요한 높이가 달라질 수 있음)
+        // 레이아웃 무효화 (월이 변경되면 행 수가 달라질 수 있음)
+        collectionView.collectionViewLayout.invalidateLayout()
+
+        // Snapshot 적용 (애니메이션 없음)
+        applySnapshot(animatingDifferences: false)
+
+        // 스크롤 동작 업데이트
         DispatchQueue.main.async {
             self.updateScrollBehavior()
         }
@@ -274,35 +368,34 @@ class CalendarVC: UIViewController {
     }
     
     @objc private func reloadCalendar() {
-        vm.fetchSavedEvents()
+        vm.fetchSchedules()
         refreshCalendar()
     }
-    
+
     @objc func eventDeleted() {
-        vm.fetchSavedEvents()
+        vm.fetchSchedules()
         refreshCalendar()
     }
     
     @objc private func handleCloudKitUpdate() {
         // 기존 타이머 취소 (중복 요청 방지)
         cloudKitUpdateTimer?.invalidate()
-        
+
         // 0.5초 후에 한 번만 업데이트
-        cloudKitUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+        cloudKitUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
             print("CloudKit 데이터 업데이트됨 - 캘린더 새로고침")
-            self.vm.fetchSavedEvents()
+            self.vm.fetchSchedules()
             self.refreshCalendar()
         }
     }
-    
+
     @objc private func handleNetworkReconnection() {
-        // 동기화 인디케이터 표시 (선택사항)
         showSyncIndicator()
-        
-        // 잠시 후 데이터 새로고침
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            self.vm.fetchSavedEvents()
-            // self.collectionView.reloadData()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self = self else { return }
+            self.vm.fetchSchedules()
             self.refreshCalendar()
             self.hideSyncIndicator()
         }
@@ -457,135 +550,33 @@ class CalendarVC: UIViewController {
     
 }
 
-// MARK: - collecitonView 관련
-extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UICollectionViewDelegateFlowLayout {
-    
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        // 해당 월에 필요한 줄 수 계산
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
-        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
-        let numberOfDays = range.count
-        
-        // 필요한 셀 개수 계산
-        let totalCells = firstWeekday + numberOfDays
-        let numberOfRows = Int(ceil(Double(totalCells) / 7.0))
-        
-        return numberOfRows * 7  // 5줄(35개) 또는 6줄(42개)
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "DateCell", for: indexPath) as? DateCell else {
-            return UICollectionViewCell()
-        }
+// MARK: - UICollectionViewDelegate
+extension CalendarVC: UICollectionViewDelegate {
 
-        // DateHelper를 사용하여 날짜 계산
-        guard let day = DateHelper.shared.dateForCalendarCell(at: indexPath.item, currentMonth: vm.currentMonth) else {
-            return cell
-        }
-
-        let dayNumber = DateHelper.shared.day(from: day)
-        cell.dateLabel.text = "\(dayNumber)"
-
-        let isCurrentMonth = DateHelper.shared.isDateInCurrentMonth(day, currentMonth: vm.currentMonth)
-        cell.dateLabel.alpha = isCurrentMonth ? 1.0 : 0.3
-        
-        if [0, 7, 14, 21, 28, 35].contains(indexPath.item) {  // 35 추가
-            cell.dateLabel.textColor = .red
-        } else if [6, 13, 20, 27, 34, 41].contains(indexPath.item) {  // 41 추가
-            cell.dateLabel.textColor = .blue
-        } else {
-            cell.dateLabel.textColor = .black
-        }
-        
-        cell.dateLabel.backgroundColor = .clear
-        cell.dateLabel.layer.cornerRadius = Constants.UI.smallCornerRadius
-        cell.dateLabel.layer.masksToBounds = false
-
-        let today = DateHelper.shared.startOfDay(for: Date())
-        let cellDate = DateHelper.shared.startOfDay(for: day)
-        if today == cellDate {
-            cell.dateLabel.backgroundColor = UIColor.fromHexString("E6DFF1")
-            cell.dateLabel.layer.cornerRadius = 5
-            cell.dateLabel.layer.masksToBounds = true
-        } else {
-            
-        }
-        
-        let dayEvents = vm.getEventsForDate(day)
-        cell.configure(with: dayEvents, for: day)
-        
-        return cell
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        
-        let totalWidth = self.weekStackView.frame.width
-        let numberOfItemsInRow: CGFloat = 7
-        let itemWidth = floor(totalWidth / numberOfItemsInRow)
-        let remainingWidth = totalWidth - (itemWidth * numberOfItemsInRow)
-        let additionalWidth = remainingWidth / 2
-        
-        // 현재 월에 필요한 줄 수 계산
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
-        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-        let range = Calendar.current.range(of: .day, in: .month, for: firstDayOfMonth)!
-        let numberOfDays = range.count
-        let totalCells = firstWeekday + numberOfDays
-        let numberOfRows = CGFloat(ceil(Double(totalCells) / 7.0))
-        
-        // 컬렉션뷰의 높이를 실제 필요한 줄 수로 나눔
-        let availableHeight = collectionView.frame.height
-        let itemHeight = floor(availableHeight / numberOfRows)
-        
-        let width: CGFloat
-        
-        if indexPath.item % Int(numberOfItemsInRow) == 0 {
-            width = itemWidth + additionalWidth
-        } else if indexPath.item % Int(numberOfItemsInRow) == Int(numberOfItemsInRow - 1) {
-            width = itemWidth + additionalWidth
-        } else {
-            width = itemWidth
-        }
-        
-        return CGSize(width: width, height: itemHeight)
-        
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat { //🧪
-        return .zero
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-        return .zero
-    }
-    
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.currentMonth))!
-        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-        
-        let daysOffset = indexPath.item - firstWeekday
-        let selectedDate = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-        
+        // DiffableDataSource에서 아이템 가져오기
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        let selectedDate = item.date
+
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MM월 dd일"
         let dateString = dateFormatter.string(from: selectedDate)
-        
+
         let weekdayFormatter = DateFormatter()
         weekdayFormatter.locale = Locale(identifier: "ko_KR")
         weekdayFormatter.dateFormat = "EEEE"
         let weekdayString = weekdayFormatter.string(from: selectedDate)
         let finalDateString = "\(dateString) (\(weekdayString))"
-        
+
         let today = Date()
         let calendar = Calendar.current
-        
+
         let startOfToday = calendar.startOfDay(for: today)
         let startOfSelectedDate = calendar.startOfDay(for: selectedDate)
-        
+
         let dayDifference = calendar.dateComponents([.day], from: startOfToday, to: startOfSelectedDate).day ?? 0
         var dDayString = ""
-        
+
         if dayDifference > 0 {
             dDayString = "D-\(dayDifference)"
         } else if dayDifference == 0 {
@@ -593,11 +584,12 @@ extension CalendarVC: UICollectionViewDataSource , UICollectionViewDelegate , UI
         } else {
             dDayString = "D+\(-dayDifference)"
         }
-        
+
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "DetailDutyVC") as? DetailDutyVC else { return }
         nextVC.vm.selecDateString = finalDateString
         nextVC.vm.selectedDate = selectedDate
         nextVC.vm.dDayString = dDayString
+        nextVC.modalPresentationStyle = .overFullScreen
         present(nextVC, animated: true)
     }
     

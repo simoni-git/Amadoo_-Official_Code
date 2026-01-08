@@ -6,10 +6,9 @@
 //
 
 import UIKit
-import CoreData
 
 class EditCategoryVM {
-    
+
     var delegate: EditCategoryVCDelegate?
     var addForSelectCategoryVCDelegate: AddForSelectCategoryVCDelegate?
     var selectColorCode: String? = ""
@@ -19,8 +18,46 @@ class EditCategoryVM {
     var originSelectColor: String?
     var isEditMode: Bool = false
     var isAddMode: Bool = false
-    let coreDataManager = CoreDataManager.shared
-    
+
+    // MARK: - Clean Architecture Dependencies
+    private var saveCategoryUseCase: SaveCategoryUseCaseProtocol?
+    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
+
+    /// 의존성 주입 메서드
+    func injectDependencies(
+        saveCategoryUseCase: SaveCategoryUseCaseProtocol,
+        fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
+    ) {
+        self.saveCategoryUseCase = saveCategoryUseCase
+        self.fetchCategoriesUseCase = fetchCategoriesUseCase
+    }
+
+    // MARK: - UseCase Methods
+
+    /// UseCase를 통한 카테고리 저장
+    func saveCategoryUsingUseCase(name: String, color: String) -> Result<CategoryItem, Error>? {
+        guard let useCase = saveCategoryUseCase else { return nil }
+
+        let category = CategoryItem(name: name, color: color, isDefault: false)
+        return useCase.execute(category: category)
+    }
+
+    /// UseCase를 통한 카테고리 수정
+    func updateCategoryUsingUseCase(name: String, color: String) -> Result<CategoryItem, Error>? {
+        guard let useCase = saveCategoryUseCase else { return nil }
+
+        let category = CategoryItem(name: name, color: color, isDefault: false)
+        return useCase.executeUpdate(category: category)
+    }
+
+    /// UseCase를 통한 모든 카테고리 조회
+    func fetchAllCategoriesUsingUseCase() -> [CategoryItem] {
+        guard let useCase = fetchCategoriesUseCase else { return [] }
+        return useCase.execute()
+    }
+
+    // MARK: - Properties
+
     let colors = [
         (name: "프렌치로즈", code: "ECBDBF"),
         (name: "라이트오렌지", code: "FFB124"),
@@ -31,88 +68,18 @@ class EditCategoryVM {
         (name: "소프트바이올렛", code: "A495C6"),
         (name: "파스텔브라운", code: "BBA79C")
     ]
-    
-    func saveCategory(categoryName: String, selectColor: String) {
-        let entity = NSEntityDescription.entity(forEntityName: "Category", in: coreDataManager.context)
-        let newCategory = NSManagedObject(entity: entity!, insertInto: coreDataManager.context)
-        newCategory.setValue(categoryName, forKey: "name")
-        newCategory.setValue(selectColor, forKey: "color")
-        newCategory.setValue(false, forKey: "isDefault")
-        coreDataManager.saveContext()
-        // CloudKit 동기화 추가
-            checkAndSync()
-    }
-    
-    func fetchCategory(name: String? , color: String?) -> (name: String , color: String)? {
-        guard let name = originCategoryName , let color = originSelectColor else {return nil}
-        
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "Category")
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "name == %@", name),
-            NSPredicate(format: "color == %@", color),
-        ])
-        
-        do {
-            let fetchResults = try coreDataManager.context.fetch(fetchRequest)
-            if let target = fetchResults.first as? NSManagedObject,
-               let name = target.value(forKey: "name") as? String,
-               let color = target.value(forKey: "color") as? String {
-                return (name: name, color: color)
-            }
-        } catch {
-            print("Error fetching category: \(error)")
-        }
-        
-        return nil
-    }
-    
+
+    // MARK: - Validation Methods
+
+    /// 카테고리 이름 중복 검사 (UseCase 기반)
     func isCategoryNameExists(categoryName: String) -> Bool {
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "Category")
-        
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "name == %@", categoryName),
-            NSPredicate(format: "name != %@", originCategoryName ?? "")
-        ])
-        
-        do {
-            let fetchResults = try coreDataManager.context.fetch(fetchRequest)
-            return !fetchResults.isEmpty
-        } catch {
-            
-            return false
-        }
+        let categories = fetchAllCategoriesUsingUseCase()
+        return categories.contains { $0.name == categoryName && $0.name != originCategoryName }
     }
-    
+
+    /// 색상 중복 검사 (UseCase 기반)
     func isColorExists(selectColor: String) -> Bool {
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "Category")
-        
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "color == %@", selectColor),
-            NSPredicate(format: "color != %@", originSelectColor ?? "")
-        ])
-        
-        do {
-            let fetchResults = try coreDataManager.context.fetch(fetchRequest)
-            return !fetchResults.isEmpty
-        } catch {
-            
-            return false
-        }
+        let categories = fetchAllCategoriesUsingUseCase()
+        return categories.contains { $0.color == selectColor && $0.color != originSelectColor }
     }
-    
-    // CloudKit 동기화 체크 함수 추가
-    private func checkAndSync() {
-        if NetworkSyncManager.shared.getCurrentNetworkStatus() {
-            CloudKitSyncManager.shared.checkAccountStatus { isAvailable in
-                if isAvailable {
-                    print("카테고리가 CloudKit에 동기화됩니다")
-                } else {
-                    print("iCloud 계정 확인 필요")
-                }
-            }
-        } else {
-            print("오프라인 상태 - 네트워크 연결 시 자동 동기화됩니다")
-        }
-    }
-   
 }

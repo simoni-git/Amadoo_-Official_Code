@@ -8,7 +8,12 @@
 import UIKit
 
 class AddDutyVC: UIViewController {
-    
+
+    // MARK: - Section for DiffableDataSource
+    enum Section: Hashable {
+        case main
+    }
+
     var vm = AddDutyVM()
     @IBOutlet weak var dutyTextField: UITextField!
     @IBOutlet weak var defaultDayBtn: UIButton!
@@ -21,55 +26,217 @@ class AddDutyVC: UIViewController {
     @IBOutlet weak var categoryBtn: UIButton!
     @IBOutlet weak var weekStackView: UIStackView!
     @IBOutlet weak var collectionView: UICollectionView!
-    
+
+    // MARK: - DiffableDataSource
+    private var dataSource: UICollectionViewDiffableDataSource<Section, SelectableDateItem>!
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        collectionView.dataSource = self
-        collectionView.delegate = self
+        DIContainer.shared.injectAddDutyVM(vm)
+        setupCollectionView()
         dutyTextField.delegate = self
-        collectionView.collectionViewLayout.invalidateLayout()
         configure()
+    }
+
+    // MARK: - CollectionView Setup
+
+    private func setupCollectionView() {
+        collectionView.collectionViewLayout = createLayout()
+        configureDataSource()
+        collectionView.delegate = self
+        applySnapshot()
+    }
+
+    private func createLayout() -> UICollectionViewCompositionalLayout {
+        return UICollectionViewCompositionalLayout { _, _ in
+            // 6주 고정 (42일 / 7일 = 6행)
+            let itemSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0 / 7.0),
+                heightDimension: .fractionalWidth(1.0 / 7.0)  // 정사각형
+            )
+            let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+            let groupSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0),
+                heightDimension: .fractionalWidth(1.0 / 7.0)
+            )
+            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+            let section = NSCollectionLayoutSection(group: group)
+            return section
+        }
+    }
+
+    private func configureDataSource() {
+        dataSource = UICollectionViewDiffableDataSource<Section, SelectableDateItem>(
+            collectionView: collectionView
+        ) { collectionView, indexPath, item in
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: "AddDutyDateCell",
+                for: indexPath
+            ) as? AddDutyDateCell else {
+                return UICollectionViewCell()
+            }
+
+            cell.configure(with: item)
+            return cell
+        }
+    }
+
+    private func applySnapshot(animatingDifferences: Bool = false) {
+        var snapshot = NSDiffableDataSourceSnapshot<Section, SelectableDateItem>()
+        snapshot.appendSections([.main])
+
+        let items = generateSelectableDateItems()
+        snapshot.appendItems(items, toSection: .main)
+
+        dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+    }
+
+    private func generateSelectableDateItems() -> [SelectableDateItem] {
+        var items: [SelectableDateItem] = []
+
+        guard let todayMonth = vm.todayMounth else { return items }
+
+        let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: todayMonth))!
+        let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
+
+        for index in 0..<42 {
+            let daysOffset = index - firstWeekday
+            let date = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
+            let isCurrentMonth = Calendar.current.isDate(date, equalTo: todayMonth, toGranularity: .month)
+            let dayOfWeek = Calendar.current.component(.weekday, from: date) - 1
+
+            // 선택 상태 계산
+            let (isSelected, isInRange) = calculateSelectionState(for: date)
+
+            let item = SelectableDateItem(
+                id: UUID(),
+                date: date,
+                isCurrentMonth: isCurrentMonth,
+                isSelected: isSelected,
+                isInRange: isInRange,
+                dayOfWeek: dayOfWeek
+            )
+            items.append(item)
+        }
+
+        return items
+    }
+
+    private func calculateSelectionState(for date: Date) -> (isSelected: Bool, isInRange: Bool) {
+        if vm.isEditMode {
+            return calculateEditModeSelectionState(for: date)
+        } else {
+            return calculateNormalModeSelectionState(for: date)
+        }
+    }
+
+    private func calculateEditModeSelectionState(for date: Date) -> (isSelected: Bool, isInRange: Bool) {
+        guard let buttonType = vm.originButtonType else {
+            return (false, false)
+        }
+
+        if vm.editStartDate == nil {
+            // 원본 데이터 기반 표시
+            guard let startDay = vm.originStartDate,
+                  let endDay = vm.originEndDate,
+                  let eventDate = vm.originDate else {
+                return (false, false)
+            }
+
+            switch buttonType {
+            case "defaultDay", "multipleDay":
+                let isSelected = Calendar.current.isDate(date, inSameDayAs: eventDate)
+                return (isSelected, false)
+            case "periodDay":
+                let isInRange = date >= startDay && date <= endDay
+                return (false, isInRange)
+            default:
+                return (false, false)
+            }
+        } else {
+            // 편집 중인 데이터 기반 표시
+            switch buttonType {
+            case "defaultDay", "multipleDay":
+                if let editDate = vm.editDate {
+                    let isSelected = Calendar.current.isDate(date, inSameDayAs: editDate)
+                    return (isSelected, false)
+                }
+                return (false, false)
+            case "periodDay":
+                if let startDate = vm.editStartDate, let endDate = vm.editEndDate {
+                    let isInRange = date >= startDate && date <= endDate
+                    return (false, isInRange)
+                } else if let startDate = vm.editStartDate, vm.editEndDate == nil {
+                    let isSelected = Calendar.current.isDate(date, inSameDayAs: startDate)
+                    return (isSelected, false)
+                }
+                return (false, false)
+            default:
+                return (false, false)
+            }
+        }
+    }
+
+    private func calculateNormalModeSelectionState(for date: Date) -> (isSelected: Bool, isInRange: Bool) {
+        switch vm.selectedButtonType {
+        case .defaultDay:
+            if let selectedSingleDate = vm.selectedSingleDate {
+                let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedSingleDate)
+                return (isSelected, false)
+            }
+            return (false, false)
+
+        case .multipleDay:
+            let isSelected = vm.selectedMultipleDates.contains { Calendar.current.isDate($0, inSameDayAs: date) }
+            return (isSelected, false)
+
+        case .periodDay:
+            if let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate {
+                let isInRange = date >= startDate && date <= endDate
+                return (false, isInRange)
+            } else if let startDate = vm.selectedStartDate, vm.selectedEndDate == nil {
+                let isSelected = Calendar.current.isDate(date, inSameDayAs: startDate)
+                return (isSelected, false)
+            }
+            return (false, false)
+        }
     }
     
     private func configure() {
         [defaultDayBtn, periodDayBtn, multipleDayBtn, categoryBtn, registerBtn].forEach { button in
             button?.layer.cornerRadius = 10
         }
-        
+
         if let date = vm.todayMounthString {
             dateLabel.text = date
         }
-        
+
         if vm.isEditMode {
             updateUIWithOriginDuty()
-            vm.originButtonType = vm.originDuty.value(forKey: "buttonType") as? String
-            vm.originCategoryColor = vm.originDuty.value(forKey: "categoryColor") as? String
-            vm.originTitle = vm.originDuty.value(forKey: "title") as? String
-            vm.originDate = vm.originDuty.value(forKey: "date") as? Date
-            vm.originStartDate = vm.originDuty.value(forKey: "startDay") as? Date
-            vm.originEndDate = vm.originDuty.value(forKey: "endDay") as? Date
-            
+            // originButtonType, originTitle 등은 이미 DetailDutyVC에서 설정됨
         } else {
             updateButtonStyles()
         }
-        
+
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tapGesture.cancelsTouchesInView = false
         view.addGestureRecognizer(tapGesture)
     }
     
     private func updateUIWithOriginDuty() {
-        guard let originDuty = vm.originDuty else { return }
-        
-        if let title = originDuty.value(forKey: "title") as? String {
+        // 제목 설정
+        if let title = vm.originTitle {
             dutyTextField.text = title
         }
-        
-        if let buttonType = originDuty.value(forKey: "buttonType") as? String {
+
+        // 버튼 타입에 따른 UI 설정
+        if let buttonType = vm.originButtonType {
             defaultDayBtn.isUserInteractionEnabled = false
             periodDayBtn.isUserInteractionEnabled = false
             multipleDayBtn.isUserInteractionEnabled = false
-            
+
             switch buttonType {
             case "defaultDay":
                 defaultDayBtn.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
@@ -83,16 +250,15 @@ class AddDutyVC: UIViewController {
                 defaultDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
                 periodDayBtn.backgroundColor = UIColor.fromHexString("F8EDE3")
                 multipleDayBtn.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-           
             default:
                 break
             }
         }
-        
-        if let categoryColorHex = originDuty.value(forKey: "categoryColor") as? String {
+
+        // 카테고리 색상 설정
+        if let categoryColorHex = vm.originCategoryColor {
             categoryBtn.backgroundColor = UIColor.fromHexString(categoryColorHex)
         }
-        
     }
     
     private func updateButtonStyles() {
@@ -116,7 +282,7 @@ class AddDutyVC: UIViewController {
         vm.selectedEndDate = nil
         vm.selectedMultipleDates.removeAll()
         updateButtonStyles()
-        collectionView.reloadData()
+        applySnapshot()
     }
     
     private func updateMonthLabel() {
@@ -137,13 +303,13 @@ class AddDutyVC: UIViewController {
     
     @IBAction func tapLeftMonthBtn(_ sender: UIButton) {
         vm.todayMounth = Calendar.current.date(byAdding: .month, value: -1, to: vm.todayMounth!)!
-        collectionView.reloadData()
+        applySnapshot()
         updateMonthLabel()
     }
-    
+
     @IBAction func tapRightMonthBtn(_ sender: UIButton) {
         vm.todayMounth = Calendar.current.date(byAdding: .month, value: 1, to: vm.todayMounth!)!
-        collectionView.reloadData()
+        applySnapshot()
         updateMonthLabel()
     }
     
@@ -222,164 +388,25 @@ class AddDutyVC: UIViewController {
     
 }
 
-// MARK: - CollecitonView 관련
-extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UICollectionViewDelegateFlowLayout {
-    
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 42
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "AddDutyDateCell", for: indexPath) as? AddDutyDateCell else {
-            return UICollectionViewCell()
-        }
-        
-        if vm.isEditMode == true {
-            let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.todayMounth!))!
-            let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-            
-            let daysOffset = indexPath.item - firstWeekday
-            let day = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-            let dayNumber = Calendar.current.component(.day, from: day)
-            let isCurrentMonth = Calendar.current.isDate(day, equalTo: vm.todayMounth!, toGranularity: .month)
-            
-            cell.dateLabel.text = isCurrentMonth ? "\(dayNumber)" : nil
-            cell.subView.layer.cornerRadius = CGFloat(8)
-            cell.subView.backgroundColor = .clear
-            
-            guard let buttonType = vm.originDuty.value(forKey: "buttonType") as? String,
-                  let categoryColorHex = vm.originDuty.value(forKey: "categoryColor") as? String,
-                  let startDay = vm.originDuty.value(forKey: "startDay") as? Date,
-                  let endDay = vm.originDuty.value(forKey: "endDay") as? Date,
-                  let eventDate = vm.originDuty.value(forKey: "date") as? Date
-            else {
-                print("originDuty 데이터가 올바르지 않습니다.")
-                return cell
-            }
-            
-            //let backgroundColor = UIColor.fromHexString("FAD4D8")
-            let backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-            if vm.editStartDate == nil {
-                switch buttonType {
-                case "defaultDay":
-                    if Calendar.current.isDate(day, inSameDayAs: eventDate) {
-                        cell.subView.backgroundColor = backgroundColor
-                    }
-                    
-                case "multipleDay":
-                    if Calendar.current.isDate(day, inSameDayAs: eventDate) {
-                        cell.subView.backgroundColor = backgroundColor
-                    }
-                    
-                case "periodDay":
-                    if day >= startDay && day <= endDay {
-                        cell.subView.backgroundColor = backgroundColor
-                    }
-                    
-                default:
-                    break
-                }
-            } else {
-                switch buttonType {
-                case "defaultDay" , "multipleDay":
-                    if let editDate = vm.editDate , Calendar.current.isDate(day, inSameDayAs: editDate) {
-                        cell.subView.backgroundColor = backgroundColor
-                    } else {
-                        print("editSingDate 의 값이 없나,,프린팅해바 => \(String(describing: vm.editDate))")
-                    }
-                    
-                case "periodDay":
-                    if let startDate = vm.editStartDate, let endDate = vm.editEndDate, day >= startDate && day <= endDate {
-                        cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-                    } else if let startDate = vm.editStartDate, vm.editEndDate == nil, day == startDate {
-                        cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-                    }
-                    
-                default:
-                    break
-                }
-            }
-            
-        } else {
-            let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.todayMounth!))!
-            let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-            
-            let daysOffset = indexPath.item - firstWeekday
-            let day = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-            let dayNumber = Calendar.current.component(.day, from: day)
-            let isCurrentMonth = Calendar.current.isDate(day, equalTo: vm.todayMounth!, toGranularity: .month)
-            
-            cell.dateLabel.text = isCurrentMonth ? "\(dayNumber)" : nil
-            cell.subView.layer.cornerRadius = CGFloat(8)
-            cell.subView.backgroundColor = .clear
-            
-            switch vm.selectedButtonType {
-            case .defaultDay:
-                if let selectedSingleDate = vm.selectedSingleDate, day == selectedSingleDate {
-                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-                }
-                
-            case .multipleDay:
-                if vm.selectedMultipleDates.contains(day) {
-                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-                }
-                
-            case .periodDay:
-                if let startDate = vm.selectedStartDate, let endDate = vm.selectedEndDate, day >= startDate && day <= endDate {
-                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-                } else if let startDate = vm.selectedStartDate, vm.selectedEndDate == nil, day == startDate {
-                    cell.subView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.2)
-                }
-            }
-            
-        }
-        
-        return cell
-        
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let totalWidth = self.weekStackView.frame.width
-        let numberOfItemsInRow: CGFloat = 7
-        let itemWidth = floor(totalWidth / numberOfItemsInRow)
-        let remainingWidth = totalWidth - (itemWidth * numberOfItemsInRow)
-        let width = indexPath.item % 7 == 6 ? itemWidth + remainingWidth : itemWidth
-        
-        return CGSize(width: width, height: itemWidth)
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-        return .zero
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-        return .zero
-    }
-    
+// MARK: - CollectionView Delegate
+extension AddDutyVC: UICollectionViewDelegate {
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        
-        if vm.isEditMode == true {
-            print("눌린다")
-            let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.todayMounth!))!
-            let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-            
-            let daysOffset = indexPath.item - firstWeekday
-            let selectedDate = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-            let isCurrentMonth = Calendar.current.isDate(selectedDate, equalTo: vm.todayMounth!, toGranularity: .month)
-            
-            guard let cell = collectionView.cellForItem(at: indexPath) as? AddDutyDateCell,
-                  cell.dateLabel.text != nil,
-                  isCurrentMonth else {
-                return
-            }
-            
+        guard let item = dataSource.itemIdentifier(for: indexPath),
+              item.isCurrentMonth else {
+            return
+        }
+
+        let selectedDate = item.date
+
+        if vm.isEditMode {
             switch vm.originButtonType {
             case "defaultDay", "multipleDay":
                 vm.editDate = selectedDate
                 vm.editStartDate = selectedDate
                 vm.editEndDate = selectedDate
-                collectionView.reloadData()
-                
+                applySnapshot()
+
             case "periodDay":
                 if vm.editStartDate == nil {
                     vm.editStartDate = selectedDate
@@ -393,38 +420,26 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
                     vm.editStartDate = selectedDate
                     vm.editEndDate = nil
                 }
-                collectionView.reloadData()
+                applySnapshot()
+
             default:
                 break
             }
-            
+
         } else {
-            let firstDayOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: vm.todayMounth!))!
-            let firstWeekday = Calendar.current.component(.weekday, from: firstDayOfMonth) - 1
-            
-            let daysOffset = indexPath.item - firstWeekday
-            let selectedDate = Calendar.current.date(byAdding: .day, value: daysOffset, to: firstDayOfMonth)!
-            let isCurrentMonth = Calendar.current.isDate(selectedDate, equalTo: vm.todayMounth!, toGranularity: .month)
-            
-            guard let cell = collectionView.cellForItem(at: indexPath) as? AddDutyDateCell,
-                  cell.dateLabel.text != nil,
-                  isCurrentMonth else {
-                return
-            }
-            
             switch vm.selectedButtonType {
             case .defaultDay:
                 vm.selectedSingleDate = selectedDate
-                collectionView.reloadData()
-                
+                applySnapshot()
+
             case .multipleDay:
-                if let index = vm.selectedMultipleDates.firstIndex(of: selectedDate) {
+                if let index = vm.selectedMultipleDates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: selectedDate) }) {
                     vm.selectedMultipleDates.remove(at: index)
                 } else {
                     vm.selectedMultipleDates.append(selectedDate)
                 }
-                collectionView.reloadData()
-                
+                applySnapshot()
+
             case .periodDay:
                 if vm.selectedStartDate == nil {
                     vm.selectedStartDate = selectedDate
@@ -438,12 +453,10 @@ extension AddDutyVC: UICollectionViewDelegate , UICollectionViewDataSource , UIC
                     vm.selectedStartDate = selectedDate
                     vm.selectedEndDate = nil
                 }
-                collectionView.reloadData()
+                applySnapshot()
             }
         }
-        
     }
-    
 }
 
 extension AddDutyVC: UITextFieldDelegate {

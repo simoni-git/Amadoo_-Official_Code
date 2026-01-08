@@ -17,6 +17,7 @@ class AddCheckVerMemoVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        DIContainer.shared.injectAddCheckVerMemoVM(vm)
         tableView.delegate = self
         tableView.dataSource = self
         titleTextField.delegate = self
@@ -106,19 +107,28 @@ class AddCheckVerMemoVC: UIViewController {
             presentWarning("제목이 비어있네요")
             return
         }
-        
+
+        // visible cells에서 항목 수집
+        var items: [String] = []
         for (_, cell) in tableView.visibleCells.enumerated() {
             guard let customCell = cell as? AddCheckVerMemo_Cell,
                   let name = customCell.textField.text, !name.isEmpty else {
                 presentWarning("리스트에 빈칸을 모두 채워주세요")
                 return
             }
-            vm.checkListSetValue(title: title, name: name, isComplete: false, memoType: vm.memoType)
+            items.append(name)
         }
-        
-        vm.coreDataManager.saveContext()
-        vm.delegate?.didSaveCheckVerMemoItems()
-        navigationController?.popViewController(animated: true)
+
+        // UseCase를 통한 체크리스트 저장
+        vm.checkListItems = items
+        let results = vm.saveAllCheckListItemsUsingUseCase(title: title)
+
+        if !results.isEmpty {
+            vm.delegate?.didSaveCheckVerMemoItems()
+            navigationController?.popViewController(animated: true)
+        } else {
+            presentWarning("저장에 실패했습니다.")
+        }
     }
     
 }

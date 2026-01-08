@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 
 class CategoryDeletePopupVC: UIViewController {
     
@@ -17,8 +16,9 @@ class CategoryDeletePopupVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        DIContainer.shared.injectCategoryDeletePopupVM(vm)
         configure()
-        
+
     }
     
     private func configure() {
@@ -35,38 +35,21 @@ class CategoryDeletePopupVC: UIViewController {
     }
     
     @IBAction func tapDeleteBtn(_ sender: UIButton) {
-        guard let categoryName = vm.categoryName, let selectColor = vm.selectColor else {
+        guard vm.categoryName != nil, vm.selectColor != nil else {
             print("Error: 카테고리 이름 또는 색상 코드가 없습니다.")
             return
         }
-        
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "Category")
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "name == %@", categoryName),
-            NSPredicate(format: "color == %@", selectColor)
-        ])
-        
-        do {
-            let fetchResults = try vm.coreDataManager.context.fetch(fetchRequest)
-            
-            if let objectToDelete = fetchResults.first as? NSManagedObject {
-                vm.coreDataManager.context.delete(objectToDelete)
-                vm.coreDataManager.saveContext()
-                if NetworkSyncManager.shared.getCurrentNetworkStatus() {
-                    CloudKitSyncManager.shared.checkAccountStatus { isAvailable in
-                        if isAvailable {
-                            print("카테고리 삭제가 CloudKit에 동기화됩니다")
-                        } else {
-                            print("iCloud 계정 확인 필요")
-                        }
-                    }
-                }
-            } else {
-                
+
+        // UseCase를 통한 삭제
+        if let result = vm.deleteCategoryUsingUseCase() {
+            switch result {
+            case .success:
+                print("카테고리 삭제 완료")
+            case .failure(let error):
+                print("카테고리 삭제 실패: \(error)")
             }
-        } catch {
-            
         }
+
         NotificationCenter.default.post(name: NSNotification.Name("DeleteCategory"), object: nil)
         dismiss(animated: true)
     }

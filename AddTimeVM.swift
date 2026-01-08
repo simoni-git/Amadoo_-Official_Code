@@ -15,6 +15,69 @@ class AddTimeVM {
     var dayOfWeek: Int
     var selectColorCode: String? = ""
     var selectColorName: String? = ""
+
+    // MARK: - Clean Architecture Dependencies
+    private var saveTimeTableUseCase: SaveTimeTableUseCaseProtocol?
+    private var fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol?
+
+    /// 의존성 주입 메서드
+    func injectDependencies(
+        saveTimeTableUseCase: SaveTimeTableUseCaseProtocol,
+        fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol
+    ) {
+        self.saveTimeTableUseCase = saveTimeTableUseCase
+        self.fetchTimeTableUseCase = fetchTimeTableUseCase
+    }
+
+    // MARK: - Clean Architecture Methods
+
+    /// UseCase를 통한 시간표 저장
+    func saveTimeTableUsingUseCase(title: String, memo: String?, startTime: String, endTime: String, color: String) -> Result<TimeTableItem, Error>? {
+        guard let useCase = saveTimeTableUseCase else { return nil }
+
+        let item = TimeTableItem(
+            dayOfWeek: Int16(dayOfWeek),
+            startTime: startTime,
+            endTime: endTime,
+            title: title,
+            memo: memo,
+            color: color
+        )
+        return useCase.execute(item: item)
+    }
+
+    /// UseCase를 통한 시간 범위 저장
+    func saveTimeRangeUsingUseCase(startHour: Int, endHour: Int) {
+        guard let useCase = saveTimeTableUseCase else { return }
+        useCase.saveTimeRange(startHour: startHour, endHour: endHour)
+    }
+
+    /// UseCase를 통한 시간 겹침 확인
+    func isTimeOverlapping(newStart: String, newEnd: String) -> Bool {
+        guard let useCase = fetchTimeTableUseCase else { return false }
+
+        let allTimetables = useCase.execute()
+
+        // 같은 요일의 시간표만 필터링
+        let sameDayTimetables = allTimetables.filter { $0.dayOfWeek == Int16(dayOfWeek) }
+
+        for timetable in sameDayTimetables {
+            let existingStart = timetable.startTime
+            let existingEnd = timetable.endTime
+
+            // 시간 겹침 체크
+            if (newStart >= existingStart && newStart < existingEnd) ||
+                (newEnd > existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    // MARK: - Legacy Properties
+
     let colors = [
         (name: "프렌치로즈", code: "ECBDBF"),
         (name: "라이트오렌지", code: "FFB124"),

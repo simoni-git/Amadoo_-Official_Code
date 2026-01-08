@@ -19,6 +19,7 @@ class MemoCheckVerDetailVC: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        DIContainer.shared.injectMemoCheckVerDetailVM(vm)
         tableView.delegate = self
         tableView.dataSource = self
         tableView.layer.cornerRadius = 10
@@ -29,7 +30,7 @@ class MemoCheckVerDetailVC: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        vm.fetchData { [weak self] in
+        vm.fetchCheckListUsingUseCase { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()
             }
@@ -49,49 +50,64 @@ class MemoCheckVerDetailVC: UIViewController {
 extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return vm.items.count
+        return vm.checkListItems.count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: "MemoCheckVerDetail_Cell") as? MemoCheckVerDetail_Cell else {
             return UITableViewCell()
         }
-        
-        let item = vm.items[indexPath.row]
+
+        let item = vm.checkListItems[indexPath.row]
         cell.nameLabel.text = item.name
         cell.configureButton(isComplete: item.isComplete)
         cell.completeBtn.addTarget(self, action: #selector(toggleComplete(_:)), for: .touchUpInside)
         cell.completeBtn.tag = indexPath.row
         cell.configureButton(isComplete: item.isComplete)
         cell.selectionStyle = .none
-        
+
         return cell
     }
     
 
     @objc private func toggleComplete(_ sender: UIButton) {
         let index = sender.tag
-        let item = vm.items[index]
-        item.isComplete.toggle()
-        vm.coreDataManager.saveContext()
-        
-        // 배열을 즉시 정렬
-        vm.items.sort { !$0.isComplete && $1.isComplete }
-        
-        // 애니메이션과 함께 테이블뷰 업데이트
-        tableView.performBatchUpdates({
-            // 전체 섹션 리로드 (정렬 반영)
-            tableView.reloadSections(IndexSet(integer: 0), with: .automatic)
-        }, completion: nil)
+
+        // UseCase를 통한 토글 처리
+        if let result = vm.toggleCompleteUsingUseCase(at: index) {
+            switch result {
+            case .success:
+                // 데이터 다시 조회하여 정렬 반영
+                vm.fetchCheckListUsingUseCase { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.tableView.performBatchUpdates({
+                            self?.tableView.reloadSections(IndexSet(integer: 0), with: .automatic)
+                        }, completion: nil)
+                    }
+                }
+            case .failure(let error):
+                print("토글 실패: \(error)")
+            }
+        }
     }
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            let itemToDelete = vm.items[indexPath.row]
-            vm.coreDataManager.context.delete(itemToDelete)
-            vm.coreDataManager.saveContext()
-            vm.items.remove(at: indexPath.row)
-            tableView.deleteRows(at: [indexPath], with: .automatic)
+            let itemToDelete = vm.checkListItems[indexPath.row]
+
+            // UseCase를 통한 삭제
+            if let result = vm.deleteCheckListUsingUseCase(itemToDelete) {
+                switch result {
+                case .success:
+                    vm.fetchCheckListUsingUseCase { [weak self] in
+                        DispatchQueue.main.async {
+                            self?.tableView.deleteRows(at: [indexPath], with: .automatic)
+                        }
+                    }
+                case .failure(let error):
+                    print("삭제 실패: \(error)")
+                }
+            }
         }
     }
     
@@ -104,11 +120,10 @@ extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
 //MARK: - Delegate 관련
 extension MemoCheckVerDetailVC: MemoCheckVerWarningDelegate {
     func didSaveMemoItem() {
-        vm.fetchData { [weak self] in
+        vm.fetchCheckListUsingUseCase { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()
             }
         }
     }
-    
 }

@@ -17,8 +17,9 @@ class EditMemoCheckVer_WarningVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        DIContainer.shared.injectEditMemoCheckVer_WarningVM(vm)
         configure()
-        
+
     }
     
     private func configure() {
@@ -30,10 +31,16 @@ class EditMemoCheckVer_WarningVC: UIViewController {
         guard let title = vm.titleText, let name = textField.text, !name.isEmpty else {
             return
         }
-        vm.checkListSetValue(title: title, name: name, isComplete: false, memoType: vm.memoType)
-        vm.coreDataManager.saveContext()
-        vm.delegate?.didSaveMemoItem()
-        dismiss(animated: true, completion: nil)
+        // UseCase를 통한 체크리스트 항목 저장
+        if let result = vm.saveCheckListUsingUseCase(title: title, name: name, isComplete: false) {
+            switch result {
+            case .success:
+                vm.delegate?.didSaveMemoItem()
+                dismiss(animated: true, completion: nil)
+            case .failure:
+                break
+            }
+        }
     }
  
 }
