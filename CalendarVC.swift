@@ -160,7 +160,7 @@ class CalendarVC: UIViewController {
         updateMonthLabel()
         vm.addDefaultCategory()
         vm.fetchSchedules()  // Domain Layer 데이터 로드
-        vm.userNotificationManager.checkNotificationPermission()
+        vm.notificationService.checkNotificationPermission()
         collectionView.isScrollEnabled = false  // 스크롤 비활성화
 
         let leftSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))

@@ -5,14 +5,13 @@
 //  Created by 시모니 on 1/7/25.
 //
 
-import UIKit
+import Foundation
 
 class DetailDutyVM {
 
     var selectedDate: Date?
     var selecDateString: String?
     var dDayString: String?
-    let userNotificationManager = UserNotificationManager.shared
 
     // DutyType을 ButtonType으로 사용 (기존 코드와의 호환성 유지)
     typealias ButtonType = DutyType
@@ -20,6 +19,7 @@ class DetailDutyVM {
     // MARK: - Clean Architecture Dependencies
     private let fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol
     private let deleteScheduleUseCase: DeleteScheduleUseCaseProtocol
+    let notificationService: NotificationServiceProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var schedules: [ScheduleItem] = []
@@ -27,10 +27,12 @@ class DetailDutyVM {
     // MARK: - Initializer
     init(
         fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol,
-        deleteScheduleUseCase: DeleteScheduleUseCaseProtocol
+        deleteScheduleUseCase: DeleteScheduleUseCaseProtocol,
+        notificationService: NotificationServiceProtocol
     ) {
         self.fetchSchedulesUseCase = fetchSchedulesUseCase
         self.deleteScheduleUseCase = deleteScheduleUseCase
+        self.notificationService = notificationService
     }
 
     // MARK: - UseCase Methods

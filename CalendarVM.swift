@@ -5,12 +5,11 @@
 //  Created by 시모니 on 1/6/25.
 //
 
-import UIKit
+import Foundation
 
 class CalendarVM {
 
     var currentMonth: Date = Date()
-    let userNotificationManager = UserNotificationManager.shared
 
     // DutyType을 ButtonType으로 사용 (기존 코드와의 호환성 유지)
     typealias ButtonType = DutyType
@@ -19,6 +18,7 @@ class CalendarVM {
     private let fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol
     private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
     private let saveCategoryUseCase: SaveCategoryUseCaseProtocol
+    let notificationService: NotificationServiceProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var schedules: [ScheduleItem] = []
@@ -27,11 +27,13 @@ class CalendarVM {
     init(
         fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol,
         fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol,
-        saveCategoryUseCase: SaveCategoryUseCaseProtocol
+        saveCategoryUseCase: SaveCategoryUseCaseProtocol,
+        notificationService: NotificationServiceProtocol
     ) {
         self.fetchSchedulesUseCase = fetchSchedulesUseCase
         self.fetchCategoriesUseCase = fetchCategoriesUseCase
         self.saveCategoryUseCase = saveCategoryUseCase
+        self.notificationService = notificationService
     }
 
     // MARK: - UseCase Methods
@@ -59,15 +61,16 @@ class CalendarVM {
     }
 
     /// Domain Entity 기반 이벤트 조회
-    func getEventsForDate(_ date: Date) -> [(title: String, color: UIColor, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)] {
-        var events: [(title: String, color: UIColor, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)] = []
+    /// - Note: colorHex는 String으로 반환, ViewController에서 UIColor로 변환
+    func getEventsForDate(_ date: Date) -> [(title: String, colorHex: String, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)] {
+        var events: [(title: String, colorHex: String, isPeriod: Bool, isStart: Bool, isEnd: Bool, startDate: Date, endDate: Date)] = []
         var addedEventTitles: Set<String> = []
         var eventLevels: [Int: String] = [:]
         let maxLevels = 4
         let calendar = Calendar.current
 
         for schedule in schedules {
-            let color = UIColor.fromHexString(schedule.categoryColor)
+            let colorHex = schedule.categoryColor
             let isPeriod = schedule.isPeriod
 
             let eventKey = schedule.title + schedule.startDay.description
@@ -88,7 +91,7 @@ class CalendarVM {
 
                     let isStart = calendar.isDate(date, inSameDayAs: schedule.startDay)
                     let isEnd = calendar.isDate(date, inSameDayAs: schedule.endDay)
-                    events.append((title: schedule.title, color: color, isPeriod: true, isStart: isStart, isEnd: isEnd, startDate: schedule.startDay, endDate: schedule.endDay))
+                    events.append((title: schedule.title, colorHex: colorHex, isPeriod: true, isStart: isStart, isEnd: isEnd, startDate: schedule.startDay, endDate: schedule.endDay))
                     addedEventTitles.insert(eventKey)
                 }
             } else {
@@ -102,7 +105,7 @@ class CalendarVM {
                     }
                     guard assignedLevel != -1 else { continue }
 
-                    events.append((title: schedule.title, color: color, isPeriod: false, isStart: true, isEnd: true, startDate: schedule.date, endDate: schedule.date))
+                    events.append((title: schedule.title, colorHex: colorHex, isPeriod: false, isStart: true, isEnd: true, startDate: schedule.date, endDate: schedule.date))
                     addedEventTitles.insert(eventKey)
                 }
             }

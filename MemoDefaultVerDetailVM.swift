@@ -5,7 +5,7 @@
 //  Created by 시모니 on 1/15/25.
 //
 
-import UIKit
+import Foundation
 
 class MemoDefaultVerDetailVM {
 

@@ -23,6 +23,13 @@ final class DIContainer {
         return CoreDataContextProvider.shared
     }()
 
+    // MARK: - App Group Sync
+
+    /// AppGroupSyncable 의존성 설정 (AppDelegate에서 호출)
+    func setAppGroupSync(_ sync: AppGroupSyncable) {
+        CoreDataContextProvider.shared.setAppGroupSync(sync)
+    }
+
     // MARK: - Services
 
     lazy var networkService: NetworkServiceProtocol = {
@@ -31,6 +38,10 @@ final class DIContainer {
 
     lazy var syncService: SyncServiceProtocol = {
         return CloudKitSyncService(networkService: networkService)
+    }()
+
+    lazy var notificationService: NotificationServiceProtocol = {
+        return UserNotificationManager.shared
     }()
 
     // MARK: - Repositories
@@ -119,7 +130,8 @@ extension DIContainer {
         return CalendarVM(
             fetchSchedulesUseCase: makeFetchSchedulesUseCase(),
             fetchCategoriesUseCase: makeFetchCategoriesUseCase(),
-            saveCategoryUseCase: makeSaveCategoryUseCase()
+            saveCategoryUseCase: makeSaveCategoryUseCase(),
+            notificationService: notificationService
         )
     }
 
@@ -128,7 +140,8 @@ extension DIContainer {
         return AddDutyVM(
             saveScheduleUseCase: makeSaveScheduleUseCase(),
             deleteScheduleUseCase: makeDeleteScheduleUseCase(),
-            fetchCategoriesUseCase: makeFetchCategoriesUseCase()
+            fetchCategoriesUseCase: makeFetchCategoriesUseCase(),
+            notificationService: notificationService
         )
     }
 
@@ -136,7 +149,8 @@ extension DIContainer {
     func makeDetailDutyVM() -> DetailDutyVM {
         return DetailDutyVM(
             fetchSchedulesUseCase: makeFetchSchedulesUseCase(),
-            deleteScheduleUseCase: makeDeleteScheduleUseCase()
+            deleteScheduleUseCase: makeDeleteScheduleUseCase(),
+            notificationService: notificationService
         )
     }
 

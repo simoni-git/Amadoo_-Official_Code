@@ -377,7 +377,7 @@ class AddDutyVC: UIViewController {
                 vm.saveMultipleDates(text: text, dates: vm.selectedMultipleDates)
             }
         }
-        vm.userNotificationManager.updateNotification()
+        vm.notificationService.updateNotification()
             self.view.window?.rootViewController?.dismiss(animated: true) {
                 // dismiss 완료 후 잠시 대기 후 알림 발송
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

@@ -5,7 +5,7 @@
 //  Created by 시모니 on 1/7/25.
 //
 
-import UIKit
+import Foundation
 
 class AddDutyVM {
 
@@ -34,8 +34,6 @@ class AddDutyVM {
     var editStartDate: Date?
     var editEndDate: Date?
 
-    let userNotificationManager = UserNotificationManager.shared
-
     // DutyType을 ButtonType으로 사용 (기존 코드와의 호환성 유지)
     typealias ButtonType = DutyType
 
@@ -43,16 +41,19 @@ class AddDutyVM {
     private let saveScheduleUseCase: SaveScheduleUseCaseProtocol
     private let deleteScheduleUseCase: DeleteScheduleUseCaseProtocol
     private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
+    let notificationService: NotificationServiceProtocol
 
     // MARK: - Initializer
     init(
         saveScheduleUseCase: SaveScheduleUseCaseProtocol,
         deleteScheduleUseCase: DeleteScheduleUseCaseProtocol,
-        fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
+        fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol,
+        notificationService: NotificationServiceProtocol
     ) {
         self.saveScheduleUseCase = saveScheduleUseCase
         self.deleteScheduleUseCase = deleteScheduleUseCase
         self.fetchCategoriesUseCase = fetchCategoriesUseCase
+        self.notificationService = notificationService
     }
 
     // MARK: - UseCase Methods

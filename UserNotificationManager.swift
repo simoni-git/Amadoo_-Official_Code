@@ -8,7 +8,7 @@
 import UIKit
 import UserNotifications
 
-class UserNotificationManager {
+class UserNotificationManager: NotificationServiceProtocol {
     static let shared = UserNotificationManager()
     private init() {}
 

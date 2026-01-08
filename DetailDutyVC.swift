@@ -95,7 +95,7 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
                     vm.fetchSchedulesForSelectedDate { [weak self] in
                         DispatchQueue.main.async {
                             self?.tableView.deleteRows(at: [indexPath], with: .fade)
-                            self?.vm.userNotificationManager.updateNotification()
+                            self?.vm.notificationService.updateNotification()
                             NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
                         }
                     }
@@ -110,7 +110,7 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
                     vm.fetchSchedulesForSelectedDate { [weak self] in
                         DispatchQueue.main.async {
                             self?.tableView.deleteRows(at: [indexPath], with: .fade)
-                            self?.vm.userNotificationManager.updateNotification()
+                            self?.vm.notificationService.updateNotification()
                             NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
                         }
                     }
