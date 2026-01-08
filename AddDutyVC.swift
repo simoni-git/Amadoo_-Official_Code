@@ -14,7 +14,7 @@ class AddDutyVC: UIViewController {
         case main
     }
 
-    var vm = AddDutyVM()
+    var vm: AddDutyVM!
     @IBOutlet weak var dutyTextField: UITextField!
     @IBOutlet weak var defaultDayBtn: UIButton!
     @IBOutlet weak var periodDayBtn: UIButton!
@@ -32,7 +32,6 @@ class AddDutyVC: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectAddDutyVM(vm)
         setupCollectionView()
         dutyTextField.delegate = self
         configure()
@@ -318,6 +317,7 @@ class AddDutyVC: UIViewController {
             return
         }
 
+        nextVC.vm = DIContainer.shared.makeSelectCategoryVM()
         nextVC.vm.delegate = self
         presentAsSheet(nextVC)
     }

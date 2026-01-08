@@ -112,136 +112,143 @@ final class DIContainer {
 
 extension DIContainer {
 
-    // MARK: - Calendar ViewModels
+    // MARK: - Calendar ViewModels Factory
 
-    /// CalendarVM 의존성 주입
-    func injectCalendarVM(_ vm: CalendarVM) {
-        vm.injectDependencies(
+    /// CalendarVM 생성
+    func makeCalendarVM() -> CalendarVM {
+        return CalendarVM(
             fetchSchedulesUseCase: makeFetchSchedulesUseCase(),
             fetchCategoriesUseCase: makeFetchCategoriesUseCase(),
             saveCategoryUseCase: makeSaveCategoryUseCase()
         )
     }
 
-    /// AddDutyVM 의존성 주입
-    func injectAddDutyVM(_ vm: AddDutyVM) {
-        vm.injectDependencies(
+    /// AddDutyVM 생성
+    func makeAddDutyVM() -> AddDutyVM {
+        return AddDutyVM(
             saveScheduleUseCase: makeSaveScheduleUseCase(),
             deleteScheduleUseCase: makeDeleteScheduleUseCase(),
             fetchCategoriesUseCase: makeFetchCategoriesUseCase()
         )
     }
 
-    /// DetailDutyVM 의존성 주입
-    func injectDetailDutyVM(_ vm: DetailDutyVM) {
-        vm.injectDependencies(
+    /// DetailDutyVM 생성
+    func makeDetailDutyVM() -> DetailDutyVM {
+        return DetailDutyVM(
             fetchSchedulesUseCase: makeFetchSchedulesUseCase(),
             deleteScheduleUseCase: makeDeleteScheduleUseCase()
         )
     }
 
-    // MARK: - Category ViewModels
+    // MARK: - Category ViewModels Factory
 
-    /// CategoryVM 의존성 주입
-    func injectCategoryVM(_ vm: CategoryVM) {
-        vm.injectDependencies(
+    /// CategoryVM 생성
+    func makeCategoryVM() -> CategoryVM {
+        return CategoryVM(
             fetchCategoriesUseCase: makeFetchCategoriesUseCase(),
             deleteCategoryUseCase: makeDeleteCategoryUseCase()
         )
     }
 
-    /// EditCategoryVM 의존성 주입
-    func injectEditCategoryVM(_ vm: EditCategoryVM) {
-        vm.injectDependencies(
+    /// EditCategoryVM 생성
+    func makeEditCategoryVM() -> EditCategoryVM {
+        return EditCategoryVM(
             saveCategoryUseCase: makeSaveCategoryUseCase(),
             fetchCategoriesUseCase: makeFetchCategoriesUseCase()
         )
     }
 
-    /// SelectCategoryVM 의존성 주입
-    func injectSelectCategoryVM(_ vm: SelectCategoryVM) {
-        vm.injectDependencies(
+    /// SelectCategoryVM 생성
+    func makeSelectCategoryVM() -> SelectCategoryVM {
+        return SelectCategoryVM(
             fetchCategoriesUseCase: makeFetchCategoriesUseCase()
         )
     }
 
-    /// CategoryDeletePopupVM 의존성 주입
-    func injectCategoryDeletePopupVM(_ vm: CategoryDeletePopupVM) {
-        vm.injectDependencies(
+    /// CategoryDeletePopupVM 생성
+    func makeCategoryDeletePopupVM() -> CategoryDeletePopupVM {
+        return CategoryDeletePopupVM(
             deleteCategoryUseCase: makeDeleteCategoryUseCase()
         )
     }
 
-    // MARK: - TimeTable ViewModels
+    // MARK: - TimeTable ViewModels Factory
 
-    /// TimeTableVM 의존성 주입
-    func injectTimeTableVM(_ vm: TimeTableVM) {
-        vm.injectDependencies(
+    /// TimeTableVM 생성
+    func makeTimeTableVM() -> TimeTableVM {
+        return TimeTableVM(
             fetchTimeTableUseCase: makeFetchTimeTableUseCase(),
             deleteTimeTableUseCase: makeDeleteTimeTableUseCase()
         )
     }
 
-    /// AddTimeVM 의존성 주입
-    func injectAddTimeVM(_ vm: AddTimeVM) {
-        vm.injectDependencies(
+    /// AddTimeVM 생성
+    func makeAddTimeVM(selectedHour: Int, minimumHour: Int, maximumHour: Int, dayOfWeek: Int) -> AddTimeVM {
+        return AddTimeVM(
+            selectedHour: selectedHour,
+            minimumHour: minimumHour,
+            maximumHour: maximumHour,
+            dayOfWeek: dayOfWeek,
             saveTimeTableUseCase: makeSaveTimeTableUseCase(),
             fetchTimeTableUseCase: makeFetchTimeTableUseCase()
         )
     }
 
-    /// EditTimeVM 의존성 주입
-    func injectEditTimeVM(_ vm: EditTimeVM) {
-        vm.injectDependencies(
+    /// EditTimeVM 생성
+    func makeEditTimeVM(timetable: TimeTableItem, minimumHour: Int, maximumHour: Int) -> EditTimeVM {
+        return EditTimeVM(
+            timetable: timetable,
+            minimumHour: minimumHour,
+            maximumHour: maximumHour,
             saveTimeTableUseCase: makeSaveTimeTableUseCase(),
             deleteTimeTableUseCase: makeDeleteTimeTableUseCase(),
             fetchTimeTableUseCase: makeFetchTimeTableUseCase()
         )
     }
 
-    // MARK: - Memo ViewModels
+    // MARK: - Memo ViewModels Factory
 
-    /// MemoVM 의존성 주입
-    func injectMemoVM(_ vm: MemoVM) {
-        vm.injectDependencies(
+    /// MemoVM 생성
+    func makeMemoVM() -> MemoVM {
+        return MemoVM(
             fetchMemoUseCase: makeFetchMemoUseCase(),
             deleteMemoUseCase: makeDeleteMemoUseCase()
         )
     }
 
-    /// AddDefaultVerMemoVM 의존성 주입
-    func injectAddDefaultVerMemoVM(_ vm: AddDefaultVerMemoVM) {
-        vm.injectDependencies(
+    /// AddDefaultVerMemoVM 생성
+    func makeAddDefaultVerMemoVM() -> AddDefaultVerMemoVM {
+        return AddDefaultVerMemoVM(
             saveMemoUseCase: makeSaveMemoUseCase()
         )
     }
 
-    /// AddCheckVerMemoVM 의존성 주입
-    func injectAddCheckVerMemoVM(_ vm: AddCheckVerMemoVM) {
-        vm.injectDependencies(
+    /// AddCheckVerMemoVM 생성
+    func makeAddCheckVerMemoVM() -> AddCheckVerMemoVM {
+        return AddCheckVerMemoVM(
             saveMemoUseCase: makeSaveMemoUseCase()
         )
     }
 
-    /// MemoDefaultVerDetailVM 의존성 주입
-    func injectMemoDefaultVerDetailVM(_ vm: MemoDefaultVerDetailVM) {
-        vm.injectDependencies(
+    /// MemoDefaultVerDetailVM 생성
+    func makeMemoDefaultVerDetailVM() -> MemoDefaultVerDetailVM {
+        return MemoDefaultVerDetailVM(
             deleteMemoUseCase: makeDeleteMemoUseCase()
         )
     }
 
-    /// MemoCheckVerDetailVM 의존성 주입
-    func injectMemoCheckVerDetailVM(_ vm: MemoCheckVerDetailVM) {
-        vm.injectDependencies(
+    /// MemoCheckVerDetailVM 생성
+    func makeMemoCheckVerDetailVM() -> MemoCheckVerDetailVM {
+        return MemoCheckVerDetailVM(
             fetchMemoUseCase: makeFetchMemoUseCase(),
             saveMemoUseCase: makeSaveMemoUseCase(),
             deleteMemoUseCase: makeDeleteMemoUseCase()
         )
     }
 
-    /// EditMemoCheckVer_WarningVM 의존성 주입
-    func injectEditMemoCheckVer_WarningVM(_ vm: EditMemoCheckVer_WarningVM) {
-        vm.injectDependencies(
+    /// EditMemoCheckVer_WarningVM 생성
+    func makeEditMemoCheckVer_WarningVM() -> EditMemoCheckVer_WarningVM {
+        return EditMemoCheckVer_WarningVM(
             saveMemoUseCase: makeSaveMemoUseCase(),
             deleteMemoUseCase: makeDeleteMemoUseCase()
         )

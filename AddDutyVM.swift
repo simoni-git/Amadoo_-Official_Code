@@ -40,12 +40,12 @@ class AddDutyVM {
     typealias ButtonType = DutyType
 
     // MARK: - Clean Architecture Dependencies
-    private var saveScheduleUseCase: SaveScheduleUseCaseProtocol?
-    private var deleteScheduleUseCase: DeleteScheduleUseCaseProtocol?
-    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
+    private let saveScheduleUseCase: SaveScheduleUseCaseProtocol
+    private let deleteScheduleUseCase: DeleteScheduleUseCaseProtocol
+    private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         saveScheduleUseCase: SaveScheduleUseCaseProtocol,
         deleteScheduleUseCase: DeleteScheduleUseCaseProtocol,
         fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
@@ -58,9 +58,7 @@ class AddDutyVM {
     // MARK: - UseCase Methods
 
     /// UseCase를 통한 단일 일정 저장
-    func saveScheduleUsingUseCase(title: String, date: Date, categoryColor: String) -> Result<ScheduleItem, Error>? {
-        guard let useCase = saveScheduleUseCase else { return nil }
-
+    func saveScheduleUsingUseCase(title: String, date: Date, categoryColor: String) -> Result<ScheduleItem, Error> {
         let schedule = ScheduleItem(
             title: title,
             date: date,
@@ -69,14 +67,12 @@ class AddDutyVM {
             buttonType: selectedButtonType,
             categoryColor: categoryColor
         )
-        return useCase.execute(schedule: schedule)
+        return saveScheduleUseCase.execute(schedule: schedule)
     }
 
     /// UseCase를 통한 기간 일정 저장
-    func savePeriodScheduleUsingUseCase(title: String, startDate: Date, endDate: Date, categoryColor: String) -> Result<[ScheduleItem], Error>? {
-        guard let useCase = saveScheduleUseCase else { return nil }
-
-        return useCase.execute(
+    func savePeriodScheduleUsingUseCase(title: String, startDate: Date, endDate: Date, categoryColor: String) -> Result<[ScheduleItem], Error> {
+        return saveScheduleUseCase.execute(
             title: title,
             startDate: startDate,
             endDate: endDate,
@@ -87,8 +83,7 @@ class AddDutyVM {
 
     /// UseCase를 통한 카테고리 목록 조회
     func fetchCategoriesUsingUseCase() -> [CategoryItem] {
-        guard let useCase = fetchCategoriesUseCase else { return [] }
-        return useCase.execute()
+        return fetchCategoriesUseCase.execute()
     }
 
     // MARK: - Save Methods
@@ -106,38 +101,35 @@ class AddDutyVM {
             categoryColor: categoryColor
         )
 
-        if let result = saveScheduleUseCase?.execute(schedule: schedule) {
-            switch result {
-            case .success:
-                print("✅ 단일 일정 저장 성공")
-            case .failure(let error):
-                print("❌ 단일 일정 저장 실패: \(error)")
-            }
+        let result = saveScheduleUseCase.execute(schedule: schedule)
+        switch result {
+        case .success:
+            print("✅ 단일 일정 저장 성공")
+        case .failure(let error):
+            print("❌ 단일 일정 저장 실패: \(error)")
         }
     }
 
     /// 기간 일정 저장
     func savePeriodDates(text: String, startDate: Date, endDate: Date, categoryColor: String) {
-        if let result = saveScheduleUseCase?.execute(
+        let result = saveScheduleUseCase.execute(
             title: text,
             startDate: startDate,
             endDate: endDate,
             categoryColor: categoryColor,
             buttonType: .periodDay
-        ) {
-            switch result {
-            case .success:
-                print("✅ 기간 일정 저장 성공")
-            case .failure(let error):
-                print("❌ 기간 일정 저장 실패: \(error)")
-            }
+        )
+        switch result {
+        case .success:
+            print("✅ 기간 일정 저장 성공")
+        case .failure(let error):
+            print("❌ 기간 일정 저장 실패: \(error)")
         }
     }
 
     /// 복수 날짜 일정 저장
     func saveMultipleDates(text: String, dates: [Date]) {
-        guard let categoryColor = selectedCategoryColorHex,
-              let useCase = saveScheduleUseCase else { return }
+        guard let categoryColor = selectedCategoryColorHex else { return }
 
         for date in dates {
             let schedule = ScheduleItem(
@@ -148,15 +140,14 @@ class AddDutyVM {
                 buttonType: .multipleDay,
                 categoryColor: categoryColor
             )
-            _ = useCase.execute(schedule: schedule)
+            _ = saveScheduleUseCase.execute(schedule: schedule)
         }
         print("✅ 복수 일정 \(dates.count)개 저장 성공")
     }
 
     /// 단일/복수 일정 수정
     func fetchAndUpdateSchedule(title: String?, categoryColor: String?, date: Date?, startDate: Date?, endDate: Date?) {
-        guard let useCase = saveScheduleUseCase,
-              let editDate = editDate ?? date,
+        guard let editDate = editDate ?? date,
               let editTitle = editTitle ?? title else { return }
 
         let schedule = ScheduleItem(
@@ -170,7 +161,7 @@ class AddDutyVM {
 
         // 기존 일정 삭제 후 새로 저장
         if let originalTitle = title, let originalDate = date {
-            _ = deleteScheduleUseCase?.execute(schedule: ScheduleItem(
+            _ = deleteScheduleUseCase.execute(schedule: ScheduleItem(
                 title: originalTitle,
                 date: originalDate,
                 startDay: originalDate,
@@ -180,21 +171,20 @@ class AddDutyVM {
             ))
         }
 
-        _ = useCase.execute(schedule: schedule)
+        _ = saveScheduleUseCase.execute(schedule: schedule)
         print("✅ 일정 수정 성공")
     }
 
     /// 기간 일정 수정
     func fetchAndUpdatePeriodSchedule(title: String?, categoryColor: String?, buttonType: String?, startDate: Date?, endDate: Date?) {
-        guard let useCase = saveScheduleUseCase,
-              let originalTitle = title,
+        guard let originalTitle = title,
               let originalStartDate = startDate else { return }
 
         let newTitle = editTitle ?? originalTitle
         let newStartDate = editStartDate ?? originalStartDate
         let newEndDate = editEndDate ?? (endDate ?? originalStartDate)
 
-        let result = useCase.executeUpdatePeriod(
+        let result = saveScheduleUseCase.executeUpdatePeriod(
             originalTitle: originalTitle,
             originalStartDay: originalStartDate,
             newTitle: newTitle,

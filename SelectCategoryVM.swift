@@ -12,13 +12,13 @@ class SelectCategoryVM {
     var delegate: SelectCategoryVCDelegate?
 
     // MARK: - Clean Architecture Dependencies
-    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
+    private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var categoryList: [CategoryItem] = []
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
     ) {
         self.fetchCategoriesUseCase = fetchCategoriesUseCase
@@ -28,13 +28,7 @@ class SelectCategoryVM {
 
     /// UseCase를 통한 카테고리 조회
     func fetchCategoriesUsingUseCase(completion: @escaping () -> Void) {
-        guard let useCase = fetchCategoriesUseCase else {
-            categoryList = []
-            completion()
-            return
-        }
-
-        categoryList = useCase.execute()
+        categoryList = fetchCategoriesUseCase.execute()
         completion()
     }
 }

@@ -16,15 +16,15 @@ class CalendarVM {
     typealias ButtonType = DutyType
 
     // MARK: - Clean Architecture Dependencies
-    private var fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol?
-    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
-    private var saveCategoryUseCase: SaveCategoryUseCaseProtocol?
+    private let fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol
+    private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
+    private let saveCategoryUseCase: SaveCategoryUseCaseProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var schedules: [ScheduleItem] = []
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol,
         fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol,
         saveCategoryUseCase: SaveCategoryUseCaseProtocol
@@ -38,17 +38,12 @@ class CalendarVM {
 
     /// UseCase를 통한 일정 조회
     func fetchSchedules() {
-        guard let useCase = fetchSchedulesUseCase else {
-            schedules = []
-            return
-        }
-        schedules = useCase.execute()
+        schedules = fetchSchedulesUseCase.execute()
     }
 
     /// UseCase를 통한 특정 날짜 일정 조회
     func fetchSchedules(for date: Date) -> [ScheduleItem] {
-        guard let useCase = fetchSchedulesUseCase else { return [] }
-        return useCase.execute(for: date)
+        return fetchSchedulesUseCase.execute(for: date)
     }
 
     /// 특정 날짜에 해당하는 ScheduleItem 배열 반환 (DiffableDataSource용)
@@ -120,8 +115,8 @@ class CalendarVM {
     func addDefaultCategory() {
         // CloudKit 동기화가 완료될 때까지 잠시 대기
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            guard let useCase = self?.saveCategoryUseCase else { return }
-            if case .success(let category) = useCase.createDefaultIfNeeded() {
+            guard let self = self else { return }
+            if case .success(let category) = self.saveCategoryUseCase.createDefaultIfNeeded() {
                 if category != nil {
                     print("기본 카테고리 '할 일' 생성됨")
                 } else {

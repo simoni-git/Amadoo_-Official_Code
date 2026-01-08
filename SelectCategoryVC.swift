@@ -14,12 +14,11 @@ protocol SelectCategoryVCDelegate: AnyObject {
 
 class SelectCategoryVC: UIViewController {
 
-    var vm = SelectCategoryVM()
+    var vm: SelectCategoryVM!
     @IBOutlet weak var tableView: UITableView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectSelectCategoryVM(vm)
         tableView.dataSource = self
         tableView.delegate = self
     }
@@ -49,6 +48,7 @@ class SelectCategoryVC: UIViewController {
 
     @IBAction func tapAddCategoryBtn(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(withIdentifier: "EditCategoryVC") as? EditCategoryVC else {return}
+        nextVC.vm = DIContainer.shared.makeEditCategoryVM()
         nextVC.vm.addForSelectCategoryVCDelegate = self
         nextVC.vm.isAddMode = true
         present(nextVC, animated: true)

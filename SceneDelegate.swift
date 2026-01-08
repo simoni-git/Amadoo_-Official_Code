@@ -16,11 +16,41 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
         // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
-        guard let _ = (scene as? UIWindowScene) else { return }
+        guard let windowScene = (scene as? UIWindowScene) else { return }
+
+        // 탭바 루트 VC에 ViewModel 주입
+        if let window = windowScene.windows.first,
+           let tabBarController = window.rootViewController as? UITabBarController {
+            injectViewModels(to: tabBarController)
+        }
 
         // 위젯에서 딥링크로 앱을 열었을 때 처리
         if let urlContext = connectionOptions.urlContexts.first {
             handleDeepLink(url: urlContext.url)
+        }
+    }
+
+    // MARK: - ViewModel Injection
+    private func injectViewModels(to tabBarController: UITabBarController) {
+        guard let viewControllers = tabBarController.viewControllers else { return }
+
+        for viewController in viewControllers {
+            // 네비게이션 컨트롤러인 경우 루트 VC 가져오기
+            let targetVC: UIViewController?
+            if let navController = viewController as? UINavigationController {
+                targetVC = navController.viewControllers.first
+            } else {
+                targetVC = viewController
+            }
+
+            // 각 VC 타입에 맞는 VM 주입
+            if let timeTableVC = targetVC as? TimeTableVC {
+                timeTableVC.vm = DIContainer.shared.makeTimeTableVM()
+            } else if let calendarVC = targetVC as? CalendarVC {
+                calendarVC.vm = DIContainer.shared.makeCalendarVM()
+            } else if let memoVC = targetVC as? MemoVC {
+                memoVC.vm = DIContainer.shared.makeMemoVM()
+            }
         }
     }
 

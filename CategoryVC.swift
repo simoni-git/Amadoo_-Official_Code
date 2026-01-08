@@ -8,14 +8,13 @@
 import UIKit
 
 class CategoryVC: UIViewController {
-    
-    var vm = CategoryVM()
+
+    var vm: CategoryVM!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var addCategoryBtn: UIButton!
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectCategoryVM(vm)
         tableView.dataSource = self
         tableView.delegate = self
         configure()
@@ -35,6 +34,7 @@ class CategoryVC: UIViewController {
 
     @IBAction func tapAddCategoryBtn(_ sender: UIButton) {
         guard let editCategoryVC = storyboard?.instantiateViewController(identifier: "EditCategoryVC") as? EditCategoryVC else { return }
+        editCategoryVC.vm = DIContainer.shared.makeEditCategoryVM()
         editCategoryVC.vm.delegate = self
         navigationController?.pushViewController(editCategoryVC, animated: true)
     }
@@ -103,6 +103,7 @@ extension CategoryVC: UITableViewDataSource, UITableViewDelegate {
 
         guard let editCategoryVC = self.storyboard?.instantiateViewController(identifier: "EditCategoryVC") as? EditCategoryVC else { return }
 
+        editCategoryVC.vm = DIContainer.shared.makeEditCategoryVM()
         editCategoryVC.vm.originCategoryName = category.name
         editCategoryVC.vm.originSelectColor = category.color
         editCategoryVC.vm.isEditMode = true

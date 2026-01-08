@@ -10,14 +10,14 @@ import Foundation
 class TimeTableVM {
 
     // MARK: - Clean Architecture Dependencies
-    private var fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol?
-    private var deleteTimeTableUseCase: DeleteTimeTableUseCaseProtocol?
+    private let fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol
+    private let deleteTimeTableUseCase: DeleteTimeTableUseCaseProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var timeTableItems: [TimeTableItem] = []
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         fetchTimeTableUseCase: FetchTimeTableUseCaseProtocol,
         deleteTimeTableUseCase: DeleteTimeTableUseCaseProtocol
     ) {
@@ -29,29 +29,22 @@ class TimeTableVM {
 
     /// UseCase를 통한 시간표 데이터 로드
     func loadTimeTableData() {
-        guard let useCase = fetchTimeTableUseCase else {
-            timeTableItems = []
-            return
-        }
-        timeTableItems = useCase.execute()
+        timeTableItems = fetchTimeTableUseCase.execute()
     }
 
     /// UseCase를 통한 요일별 그룹화된 시간표 조회
     func fetchGroupedByDay() -> [Int: [TimeTableItem]] {
-        guard let useCase = fetchTimeTableUseCase else { return [:] }
-        return useCase.executeGroupedByDay()
+        return fetchTimeTableUseCase.executeGroupedByDay()
     }
 
     /// UseCase를 통한 시간 범위 조회
     func getTimeRange() -> (startHour: Int, endHour: Int) {
-        guard let useCase = fetchTimeTableUseCase else { return (9, 18) }
-        return useCase.getTimeRange()
+        return fetchTimeTableUseCase.getTimeRange()
     }
 
     /// UseCase를 통한 시간표 삭제
-    func deleteTimeTable(_ item: TimeTableItem) -> Result<Void, Error>? {
-        guard let useCase = deleteTimeTableUseCase else { return nil }
-        return useCase.execute(item: item)
+    func deleteTimeTable(_ item: TimeTableItem) -> Result<Void, Error> {
+        return deleteTimeTableUseCase.execute(item: item)
     }
 
     // MARK: - TimeTableItem Methods

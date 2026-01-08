@@ -8,8 +8,8 @@
 import UIKit
 
 class AddCheckVerMemoVC: UIViewController {
-    
-    var vm = AddCheckVerMemoVM()
+
+    var vm: AddCheckVerMemoVM!
     @IBOutlet weak var saveBtn: UIButton!
     @IBOutlet weak var titleTextField: UITextField!
     @IBOutlet weak var tableView: UITableView!
@@ -17,7 +17,6 @@ class AddCheckVerMemoVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectAddCheckVerMemoVM(vm)
         tableView.delegate = self
         tableView.dataSource = self
         titleTextField.delegate = self

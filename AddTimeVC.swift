@@ -30,9 +30,6 @@ class AddTimeVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        if let vm = vm {
-            DIContainer.shared.injectAddTimeVM(vm)
-        }
         setupDatePickers()
         setupDatePickerActions()
         setupColorButtons()
@@ -178,21 +175,20 @@ class AddTimeVC: UIViewController {
         let startTime = formatter.string(from: startDatePicker.date)
         let endTime = formatter.string(from: endDatePicker.date)
 
-        if let result = vm.saveTimeTableUsingUseCase(
+        let result = vm.saveTimeTableUsingUseCase(
             title: title,
             memo: memoTextField.text,
             startTime: startTime,
             endTime: endTime,
             color: colorCode
-        ) {
-            switch result {
-            case .success:
-                print("시간표 저장 완료: \(["월","화","수","목","금"][vm.dayOfWeek])요일 \(startTime)~\(endTime)")
-                NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
-                dismiss(animated: true)
-            case .failure(let error):
-                print("시간표 저장 실패: \(error)")
-            }
+        )
+        switch result {
+        case .success:
+            print("시간표 저장 완료: \(["월","화","수","목","금"][vm.dayOfWeek])요일 \(startTime)~\(endTime)")
+            NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
+            dismiss(animated: true)
+        case .failure(let error):
+            print("시간표 저장 실패: \(error)")
         }
     }
     

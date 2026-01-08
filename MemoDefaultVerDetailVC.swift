@@ -8,15 +8,14 @@
 import UIKit
 
 class MemoDefaultVerDetailVC: UIViewController {
-    
-    var vm = MemoDefaultVerDetailVM()
+
+    var vm: MemoDefaultVerDetailVM!
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var memoTextView: UITextView!
     @IBOutlet weak var editBtn: UIButton!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectMemoDefaultVerDetailVM(vm)
         configure()
 
     }
@@ -36,6 +35,7 @@ class MemoDefaultVerDetailVC: UIViewController {
 
     @IBAction func tapEditBtn(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddDefaultVerMemoVC") as? AddDefaultVerMemoVC else { return }
+        nextVC.vm = DIContainer.shared.makeAddDefaultVerMemoVM()
         nextVC.vm.editModeTitleTextFieldText = vm.memoItem?.title ?? "제목없음"
         nextVC.vm.editModeMemoTextViewText = vm.memoItem?.memoText ?? "내용없음"
         nextVC.vm.isEditMode = true

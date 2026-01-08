@@ -31,9 +31,6 @@ class EditTimeVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        if let vm = vm {
-            DIContainer.shared.injectEditTimeVM(vm)
-        }
         setupUI()
         setupColorButtons()
         loadData()
@@ -191,44 +188,38 @@ class EditTimeVC: UIViewController {
     }
     
     private func deleteTimetable() {
-        guard let vm = vm else { return }
-
-        if let result = vm.deleteTimeTable() {
-            switch result {
-            case .success:
-                print("시간표 삭제 완료")
-                NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
-                dismiss(animated: true)
-            case .failure(let error):
-                print("시간표 삭제 실패: \(error)")
-            }
+        let result = vm.deleteTimeTable()
+        switch result {
+        case .success:
+            print("시간표 삭제 완료")
+            NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
+            dismiss(animated: true)
+        case .failure(let error):
+            print("시간표 삭제 실패: \(error)")
         }
     }
 
     private func updateTimetable(title: String, colorCode: String) {
-        guard let vm = vm else { return }
-
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
 
         let startTime = formatter.string(from: startDatePicker.date)
         let endTime = formatter.string(from: endDatePicker.date)
 
-        if let result = vm.updateTimeTable(
+        let result = vm.updateTimeTable(
             title: title,
             memo: memoTextField.text,
             startTime: startTime,
             endTime: endTime,
             color: colorCode
-        ) {
-            switch result {
-            case .success:
-                print("시간표 수정 완료")
-                NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
-                dismiss(animated: true)
-            case .failure(let error):
-                print("시간표 수정 실패: \(error)")
-            }
+        )
+        switch result {
+        case .success:
+            print("시간표 수정 완료")
+            NotificationCenter.default.post(name: NSNotification.Name("ReloadTimetable"), object: nil)
+            dismiss(animated: true)
+        case .failure(let error):
+            print("시간표 수정 실패: \(error)")
         }
     }
 

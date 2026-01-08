@@ -17,12 +17,15 @@ protocol AddDefaultVerMemoDelegate: AnyObject {
 
 class MemoVC: UIViewController {
 
-    var vm = MemoVM()
+    var vm: MemoVM!
     @IBOutlet weak var tableView: UITableView!
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectMemoVM(vm)
+        // Storyboard에서 직접 로드된 경우 VM이 nil일 수 있으므로 fallback
+        if vm == nil {
+            vm = DIContainer.shared.makeMemoVM()
+        }
         tableView.dataSource = self
         tableView.delegate = self
         tableView.layer.cornerRadius = 10
@@ -40,12 +43,14 @@ class MemoVC: UIViewController {
     
     @IBAction func tapAddCheckVerMemo(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddCheckVerMemoVC") as? AddCheckVerMemoVC else { return }
+        nextVC.vm = DIContainer.shared.makeAddCheckVerMemoVM()
         nextVC.vm.delegate = self
         navigationController?.pushViewController(nextVC, animated: true)
     }
-    
+
     @IBAction func tapAddDefaultVerMemo(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddDefaultVerMemoVC") as? AddDefaultVerMemoVC else { return }
+        nextVC.vm = DIContainer.shared.makeAddDefaultVerMemoVM()
         nextVC.vm.delegate = self
         navigationController?.pushViewController(nextVC, animated: true)
     }
@@ -93,10 +98,12 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
 
         if selectedItem.type == "check" {
             guard let nextVC = self.storyboard?.instantiateViewController(identifier: "MemoCheckVerDetailVC") as? MemoCheckVerDetailVC else { return }
+            nextVC.vm = DIContainer.shared.makeMemoCheckVerDetailVM()
             nextVC.vm.titleText = selectedItem.title
             navigationController?.pushViewController(nextVC, animated: true)
         } else {
             guard let nextVC = self.storyboard?.instantiateViewController(identifier: "MemoDefaultVerDetailVC") as? MemoDefaultVerDetailVC else { return }
+            nextVC.vm = DIContainer.shared.makeMemoDefaultVerDetailVM()
             // MemoItem을 설정 (첫 번째 아이템)
             if let firstMemo = selectedItem.items.first as? MemoItem {
                 nextVC.vm.memoItem = firstMemo
@@ -112,22 +119,21 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
             // UseCase를 통한 삭제
             if itemToDelete.type == "check" {
                 // 체크리스트 전체 삭제
-                if let result = vm.deleteAllCheckListsUsingUseCase(forTitle: itemToDelete.title) {
-                    switch result {
-                    case .success:
-                        vm.fetchAllDataUsingUseCase { [weak self] in
-                            DispatchQueue.main.async {
-                                self?.tableView.deleteRows(at: [indexPath], with: .automatic)
-                            }
+                let result = vm.deleteAllCheckListsUsingUseCase(forTitle: itemToDelete.title)
+                switch result {
+                case .success:
+                    vm.fetchAllDataUsingUseCase { [weak self] in
+                        DispatchQueue.main.async {
+                            self?.tableView.deleteRows(at: [indexPath], with: .automatic)
                         }
-                    case .failure(let error):
-                        print("삭제 실패: \(error)")
                     }
+                case .failure(let error):
+                    print("삭제 실패: \(error)")
                 }
             } else {
                 // 메모 삭제
-                if let firstMemo = itemToDelete.items.first as? MemoItem,
-                   let result = vm.deleteMemoUsingUseCase(firstMemo) {
+                if let firstMemo = itemToDelete.items.first as? MemoItem {
+                    let result = vm.deleteMemoUsingUseCase(firstMemo)
                     switch result {
                     case .success:
                         vm.fetchAllDataUsingUseCase { [weak self] in

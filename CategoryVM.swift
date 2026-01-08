@@ -10,14 +10,14 @@ import UIKit
 class CategoryVM {
 
     // MARK: - Clean Architecture Dependencies
-    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
-    private var deleteCategoryUseCase: DeleteCategoryUseCaseProtocol?
+    private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
+    private let deleteCategoryUseCase: DeleteCategoryUseCaseProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var categoryList: [CategoryItem] = []
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol,
         deleteCategoryUseCase: DeleteCategoryUseCaseProtocol
     ) {
@@ -29,25 +29,17 @@ class CategoryVM {
 
     /// UseCase를 통한 카테고리 조회
     func fetchCategoriesUsingUseCase(completion: @escaping () -> Void) {
-        guard let useCase = fetchCategoriesUseCase else {
-            categoryList = []
-            completion()
-            return
-        }
-
-        categoryList = useCase.execute()
+        categoryList = fetchCategoriesUseCase.execute()
         completion()
     }
 
     /// UseCase를 통한 카테고리 삭제
-    func deleteCategoryUsingUseCase(_ category: CategoryItem) -> Result<Void, Error>? {
-        guard let useCase = deleteCategoryUseCase else { return nil }
-        return useCase.execute(category: category)
+    func deleteCategoryUsingUseCase(_ category: CategoryItem) -> Result<Void, Error> {
+        return deleteCategoryUseCase.execute(category: category)
     }
 
     /// 해당 카테고리를 사용하는 일정 개수 확인
     func countSchedulesUsingUseCase(withColor color: String) -> Int {
-        guard let useCase = deleteCategoryUseCase else { return 0 }
-        return useCase.countSchedules(withColor: color)
+        return deleteCategoryUseCase.countSchedules(withColor: color)
     }
 }

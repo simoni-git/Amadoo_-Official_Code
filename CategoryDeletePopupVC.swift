@@ -8,15 +8,14 @@
 import UIKit
 
 class CategoryDeletePopupVC: UIViewController {
-    
-    var vm = CategoryDeletePopupVM()
+
+    var vm: CategoryDeletePopupVM!
     @IBOutlet weak var subView: UIView!
     @IBOutlet weak var cancelBtn: UIButton!
     @IBOutlet weak var deleteBtn: UIButton!
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectCategoryDeletePopupVM(vm)
         configure()
 
     }

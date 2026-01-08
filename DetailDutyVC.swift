@@ -9,7 +9,7 @@ import UIKit
 
 class DetailDutyVC: UIViewController {
 
-    var vm = DetailDutyVM()
+    var vm: DetailDutyVM!
     @IBOutlet weak var subView: UIView!
     @IBOutlet weak var dateLabel: UILabel!
     @IBOutlet weak var dDayLabel: UILabel!
@@ -18,7 +18,6 @@ class DetailDutyVC: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectDetailDutyVM(vm)
         view.backgroundColor = UIColor.white.withAlphaComponent(0.3)
         tableView.dataSource = self
         tableView.delegate = self
@@ -51,6 +50,7 @@ class DetailDutyVC: UIViewController {
         dateFormatter.dateFormat = "MM월 yyyy"
         let monthYearString = dateFormatter.string(from: vm.selectedDate!)
 
+        nextVC.vm = DIContainer.shared.makeAddDutyVM()
         nextVC.vm.todayMounth = vm.selectedDate
         nextVC.vm.todayMounthString = monthYearString
         nextVC.vm.selectedSingleDate = vm.selectedDate
@@ -89,35 +89,33 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
             // UseCase를 통한 삭제
             if scheduleToDelete.buttonType == .periodDay {
                 // 기간 일정: 전체 삭제
-                if let result = vm.deleteAllSchedulesUsingUseCase(title: scheduleToDelete.title, startDay: scheduleToDelete.startDay) {
-                    switch result {
-                    case .success:
-                        vm.fetchSchedulesForSelectedDate { [weak self] in
-                            DispatchQueue.main.async {
-                                self?.tableView.deleteRows(at: [indexPath], with: .fade)
-                                self?.vm.userNotificationManager.updateNotification()
-                                NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
-                            }
+                let result = vm.deleteAllSchedulesUsingUseCase(title: scheduleToDelete.title, startDay: scheduleToDelete.startDay)
+                switch result {
+                case .success:
+                    vm.fetchSchedulesForSelectedDate { [weak self] in
+                        DispatchQueue.main.async {
+                            self?.tableView.deleteRows(at: [indexPath], with: .fade)
+                            self?.vm.userNotificationManager.updateNotification()
+                            NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
                         }
-                    case .failure(let error):
-                        print("삭제 실패: \(error)")
                     }
+                case .failure(let error):
+                    print("삭제 실패: \(error)")
                 }
             } else {
                 // 단일 일정 삭제
-                if let result = vm.deleteScheduleUsingUseCase(scheduleToDelete) {
-                    switch result {
-                    case .success:
-                        vm.fetchSchedulesForSelectedDate { [weak self] in
-                            DispatchQueue.main.async {
-                                self?.tableView.deleteRows(at: [indexPath], with: .fade)
-                                self?.vm.userNotificationManager.updateNotification()
-                                NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
-                            }
+                let result = vm.deleteScheduleUsingUseCase(scheduleToDelete)
+                switch result {
+                case .success:
+                    vm.fetchSchedulesForSelectedDate { [weak self] in
+                        DispatchQueue.main.async {
+                            self?.tableView.deleteRows(at: [indexPath], with: .fade)
+                            self?.vm.userNotificationManager.updateNotification()
+                            NotificationCenter.default.post(name: NSNotification.Name("EventDeleted"), object: nil)
                         }
-                    case .failure(let error):
-                        print("삭제 실패: \(error)")
                     }
+                case .failure(let error):
+                    print("삭제 실패: \(error)")
                 }
             }
         }
@@ -138,6 +136,7 @@ extension DetailDutyVC: UITableViewDataSource , UITableViewDelegate {
         dateFormatter.dateFormat = "MM월 yyyy"
         let monthYearString = dateFormatter.string(from: vm.selectedDate!)
 
+        nextVC.vm = DIContainer.shared.makeAddDutyVM()
         nextVC.modalPresentationStyle = .pageSheet
         nextVC.vm.todayMounth = vm.selectedDate
         nextVC.vm.todayMounthString = monthYearString

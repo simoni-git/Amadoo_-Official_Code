@@ -14,7 +14,7 @@ class TimeTableVC: UIViewController {
         case main
     }
 
-    var vm = TimeTableVM()
+    var vm: TimeTableVM!
     @IBOutlet weak var optionBtn: UIButton!
     @IBOutlet weak var dayStackView: UIStackView!
     @IBOutlet weak var scrollView: UIScrollView!
@@ -80,8 +80,10 @@ class TimeTableVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        vm = TimeTableVM()
-        DIContainer.shared.injectTimeTableVM(vm)
+        // Storyboard에서 직접 로드된 경우 VM이 nil일 수 있으므로 fallback
+        if vm == nil {
+            vm = DIContainer.shared.makeTimeTableVM()
+        }
         setupCollectionView()
         configureDataSource()
         collectionView.delegate = self
@@ -419,8 +421,7 @@ class TimeTableVC: UIViewController {
             return
         }
 
-        let editVM = EditTimeVM(timetable: timetable, minimumHour: startHour, maximumHour: endHour)
-        editVC.vm = editVM
+        editVC.vm = DIContainer.shared.makeEditTimeVM(timetable: timetable, minimumHour: startHour, maximumHour: endHour)
 
         present(editVC, animated: true)
     }
@@ -459,16 +460,13 @@ class TimeTableVC: UIViewController {
             print("눌린 셀: \(indexPath.item)번째")
             print("위치: \(day)요일 \(hour):00")
             
-            // ViewModel 생성 (항상 정각으로 전달)
-            let nextVM = AddTimeVM(
+            guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddTimeVC") as? AddTimeVC else { return }
+            nextVC.vm = DIContainer.shared.makeAddTimeVM(
                 selectedHour: hour,
                 minimumHour: startHour,
                 maximumHour: endHour,
                 dayOfWeek: column
             )
-            
-            guard let nextVC = self.storyboard?.instantiateViewController(identifier: "AddTimeVC") as? AddTimeVC else { return }
-            nextVC.vm = nextVM
             present(nextVC, animated: true)
         }
     }

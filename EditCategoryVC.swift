@@ -16,8 +16,8 @@ protocol AddForSelectCategoryVCDelegate: AnyObject {
 }
 
 class EditCategoryVC: UIViewController {
-    
-    var vm = EditCategoryVM()
+
+    var vm: EditCategoryVM!
     @IBOutlet weak var categoryTextField: UITextField!
     @IBOutlet weak var subView: UIView!
     @IBOutlet weak var saveBtn: UIButton!
@@ -34,7 +34,6 @@ class EditCategoryVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectEditCategoryVM(vm)
         configure()
         setupTextField()
         setupGestures()
@@ -179,34 +178,30 @@ class EditCategoryVC: UIViewController {
     
     private func saveNewCategory(categoryName: String, selectColor: String) {
         // UseCase를 통한 카테고리 저장
-        if let result = vm.saveCategoryUsingUseCase(name: categoryName, color: selectColor) {
-            switch result {
-            case .success:
-                if vm.isAddMode == true {
-                    vm.addForSelectCategoryVCDelegate?.updateCategory()
-                    dismiss(animated: true)
-                } else {
-                    vm.delegate?.didUpdateCategory()
-                    navigationController?.popViewController(animated: true)
-                }
-            case .failure:
-                showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
-            }
-        }
-    }
-    
-    private func updateCategory(categoryName: String, selectColor: String) {
-        // UseCase를 통한 카테고리 수정
-        if let result = vm.updateCategoryUsingUseCase(name: categoryName, color: selectColor) {
-            switch result {
-            case .success:
+        let result = vm.saveCategoryUsingUseCase(name: categoryName, color: selectColor)
+        switch result {
+        case .success:
+            if vm.isAddMode == true {
+                vm.addForSelectCategoryVCDelegate?.updateCategory()
+                dismiss(animated: true)
+            } else {
                 vm.delegate?.didUpdateCategory()
                 navigationController?.popViewController(animated: true)
-            case .failure:
-                showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
             }
-        } else {
-            showAlert(title: "오류", message: "수정할 카테고리를 찾을 수 없습니다.")
+        case .failure:
+            showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
+        }
+    }
+
+    private func updateCategory(categoryName: String, selectColor: String) {
+        // UseCase를 통한 카테고리 수정
+        let result = vm.updateCategoryUsingUseCase(name: categoryName, color: selectColor)
+        switch result {
+        case .success:
+            vm.delegate?.didUpdateCategory()
+            navigationController?.popViewController(animated: true)
+        case .failure:
+            showAlert(title: "오류", message: "저장 중 오류가 발생했습니다.")
         }
     }
     
@@ -261,7 +256,8 @@ class EditCategoryVC: UIViewController {
     
     @IBAction func tapDeleteBtn(_ sender: UIBarButtonItem) {
         guard let editCategory_DeleteVC = self.storyboard?.instantiateViewController(identifier: "CategoryDeletePopupVC") as? CategoryDeletePopupVC else { return }
-        
+
+        editCategory_DeleteVC.vm = DIContainer.shared.makeCategoryDeletePopupVM()
         editCategory_DeleteVC.vm.categoryName = vm.originCategoryName
         editCategory_DeleteVC.vm.selectColor = vm.originSelectColor
         editCategory_DeleteVC.modalPresentationStyle = .overCurrentContext

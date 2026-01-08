@@ -14,7 +14,7 @@ class CalendarVC: UIViewController {
         case main
     }
 
-    var vm = CalendarVM()
+    var vm: CalendarVM!
     @IBOutlet weak var dateLabel: UILabel!
     @IBOutlet weak var categoryBtn: UIButton!
     @IBOutlet weak var moveDateBtn: UIButton!
@@ -32,7 +32,10 @@ class CalendarVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectCalendarVM(vm)
+        // Storyboard에서 직접 로드된 경우 VM이 nil일 수 있으므로 fallback
+        if vm == nil {
+            vm = DIContainer.shared.makeCalendarVM()
+        }
         setupCollectionView()
         configureDataSource()
         collectionView.delegate = self
@@ -337,8 +340,9 @@ class CalendarVC: UIViewController {
         guard let categoryVC = storyboard?.instantiateViewController(
                 withIdentifier: "CategoryVC"
             ) as? CategoryVC else { return }
-            
-            navigationController?.pushViewController(categoryVC, animated: true)
+
+        categoryVC.vm = DIContainer.shared.makeCategoryVM()
+        navigationController?.pushViewController(categoryVC, animated: true)
     }
     
     @IBAction func tapMoveDateBtn(_ sender: UIButton) {
@@ -522,6 +526,8 @@ class CalendarVC: UIViewController {
     private func showAddDutyVC(startDate: Date, endDate: Date) {
         guard let addDutyVC = self.storyboard?.instantiateViewController(identifier: "AddDutyVC") as? AddDutyVC else { return }
 
+        addDutyVC.vm = DIContainer.shared.makeAddDutyVM()
+
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "ko_KR")
         dateFormatter.dateFormat = "MM월 yyyy"
@@ -586,6 +592,7 @@ extension CalendarVC: UICollectionViewDelegate {
         }
 
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "DetailDutyVC") as? DetailDutyVC else { return }
+        nextVC.vm = DIContainer.shared.makeDetailDutyVM()
         nextVC.vm.selecDateString = finalDateString
         nextVC.vm.selectedDate = selectedDate
         nextVC.vm.dDayString = dDayString

@@ -18,14 +18,14 @@ class DetailDutyVM {
     typealias ButtonType = DutyType
 
     // MARK: - Clean Architecture Dependencies
-    private var fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol?
-    private var deleteScheduleUseCase: DeleteScheduleUseCaseProtocol?
+    private let fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol
+    private let deleteScheduleUseCase: DeleteScheduleUseCaseProtocol
 
     /// 클린 아키텍처 의존성 주입 (Domain Layer Entity 사용)
     private(set) var schedules: [ScheduleItem] = []
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol,
         deleteScheduleUseCase: DeleteScheduleUseCaseProtocol
     ) {
@@ -37,25 +37,23 @@ class DetailDutyVM {
 
     /// UseCase를 통한 선택된 날짜의 일정 조회
     func fetchSchedulesForSelectedDate(completion: @escaping () -> Void) {
-        guard let date = selectedDate, let useCase = fetchSchedulesUseCase else {
+        guard let date = selectedDate else {
             schedules = []
             completion()
             return
         }
 
-        schedules = useCase.execute(for: date)
+        schedules = fetchSchedulesUseCase.execute(for: date)
         completion()
     }
 
     /// UseCase를 통한 일정 삭제
-    func deleteScheduleUsingUseCase(_ schedule: ScheduleItem) -> Result<Void, Error>? {
-        guard let useCase = deleteScheduleUseCase else { return nil }
-        return useCase.execute(schedule: schedule)
+    func deleteScheduleUsingUseCase(_ schedule: ScheduleItem) -> Result<Void, Error> {
+        return deleteScheduleUseCase.execute(schedule: schedule)
     }
 
     /// UseCase를 통한 기간 일정 전체 삭제
-    func deleteAllSchedulesUsingUseCase(title: String, startDay: Date) -> Result<Void, Error>? {
-        guard let useCase = deleteScheduleUseCase else { return nil }
-        return useCase.executeAll(title: title, startDay: startDay)
+    func deleteAllSchedulesUsingUseCase(title: String, startDay: Date) -> Result<Void, Error> {
+        return deleteScheduleUseCase.executeAll(title: title, startDay: startDay)
     }
 }

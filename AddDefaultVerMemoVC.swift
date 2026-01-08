@@ -8,8 +8,8 @@
 import UIKit
 
 class AddDefaultVerMemoVC: UIViewController {
-    
-    var vm = AddDefaultVerMemoVM()
+
+    var vm: AddDefaultVerMemoVM!
     @IBOutlet weak var titleTextField: UITextField!
     @IBOutlet weak var memoTextView: UITextView!
     @IBOutlet weak var registerBtn: UIButton!
@@ -19,7 +19,6 @@ class AddDefaultVerMemoVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectAddDefaultVerMemoVM(vm)
         configure()
         setupKeyboardNotifications()
     }
@@ -115,14 +114,13 @@ class AddDefaultVerMemoVC: UIViewController {
                 return
             }
             // UseCase를 통한 메모 저장
-            if let result = vm.saveMemoUsingUseCase(title: title, memoText: memoText) {
-                switch result {
-                case .success:
-                    vm.delegate?.didSaveDefaultVerMemoItems()
-                    navigationController?.popViewController(animated: true)
-                case .failure:
-                    presentWarning("저장에 실패했습니다.")
-                }
+            let result = vm.saveMemoUsingUseCase(title: title, memoText: memoText)
+            switch result {
+            case .success:
+                vm.delegate?.didSaveDefaultVerMemoItems()
+                navigationController?.popViewController(animated: true)
+            case .failure:
+                presentWarning("저장에 실패했습니다.")
             }
         } else {
             guard let editTitle = vm.editModeTitleTextFieldText,
@@ -134,14 +132,13 @@ class AddDefaultVerMemoVC: UIViewController {
 
             if editTitle != title || editMemoText != memoText {
                 // UseCase를 통한 메모 수정
-                if let result = vm.updateMemoUsingUseCase(title: title, memoText: memoText) {
-                    switch result {
-                    case .success:
-                        vm.delegate?.didSaveDefaultVerMemoItems()
-                        navigationController?.popToRootViewController(animated: true)
-                    case .failure:
-                        presentWarning("편집할 메모를 찾을 수 없습니다.")
-                    }
+                let result = vm.updateMemoUsingUseCase(title: title, memoText: memoText)
+                switch result {
+                case .success:
+                    vm.delegate?.didSaveDefaultVerMemoItems()
+                    navigationController?.popToRootViewController(animated: true)
+                case .failure:
+                    presentWarning("편집할 메모를 찾을 수 없습니다.")
                 }
             } else {
                 presentWarning("변경된 부분이 없는 것 같아요")

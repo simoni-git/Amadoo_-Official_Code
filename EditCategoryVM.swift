@@ -20,11 +20,11 @@ class EditCategoryVM {
     var isAddMode: Bool = false
 
     // MARK: - Clean Architecture Dependencies
-    private var saveCategoryUseCase: SaveCategoryUseCaseProtocol?
-    private var fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol?
+    private let saveCategoryUseCase: SaveCategoryUseCaseProtocol
+    private let fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
 
-    /// 의존성 주입 메서드
-    func injectDependencies(
+    // MARK: - Initializer
+    init(
         saveCategoryUseCase: SaveCategoryUseCaseProtocol,
         fetchCategoriesUseCase: FetchCategoriesUseCaseProtocol
     ) {
@@ -35,25 +35,20 @@ class EditCategoryVM {
     // MARK: - UseCase Methods
 
     /// UseCase를 통한 카테고리 저장
-    func saveCategoryUsingUseCase(name: String, color: String) -> Result<CategoryItem, Error>? {
-        guard let useCase = saveCategoryUseCase else { return nil }
-
+    func saveCategoryUsingUseCase(name: String, color: String) -> Result<CategoryItem, Error> {
         let category = CategoryItem(name: name, color: color, isDefault: false)
-        return useCase.execute(category: category)
+        return saveCategoryUseCase.execute(category: category)
     }
 
     /// UseCase를 통한 카테고리 수정
-    func updateCategoryUsingUseCase(name: String, color: String) -> Result<CategoryItem, Error>? {
-        guard let useCase = saveCategoryUseCase else { return nil }
-
+    func updateCategoryUsingUseCase(name: String, color: String) -> Result<CategoryItem, Error> {
         let category = CategoryItem(name: name, color: color, isDefault: false)
-        return useCase.executeUpdate(category: category)
+        return saveCategoryUseCase.executeUpdate(category: category)
     }
 
     /// UseCase를 통한 모든 카테고리 조회
     func fetchAllCategoriesUsingUseCase() -> [CategoryItem] {
-        guard let useCase = fetchCategoriesUseCase else { return [] }
-        return useCase.execute()
+        return fetchCategoriesUseCase.execute()
     }
 
     // MARK: - Properties

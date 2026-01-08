@@ -13,13 +13,12 @@ protocol MemoCheckVerWarningDelegate: AnyObject {
 
 class MemoCheckVerDetailVC: UIViewController {
 
-    var vm = MemoCheckVerDetailVM()
+    var vm: MemoCheckVerDetailVM!
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var tableView: UITableView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectMemoCheckVerDetailVM(vm)
         tableView.delegate = self
         tableView.dataSource = self
         tableView.layer.cornerRadius = 10
@@ -39,6 +38,7 @@ class MemoCheckVerDetailVC: UIViewController {
     
     @IBAction func tapAddItem(_ sender: UIButton) {
         guard let nextVC = self.storyboard?.instantiateViewController(identifier: "EditMemoCheckVer_WarningVC") as? EditMemoCheckVer_WarningVC else { return }
+        nextVC.vm = DIContainer.shared.makeEditMemoCheckVer_WarningVM()
         nextVC.vm.titleText = vm.titleText
         nextVC.vm.delegate = self
         present(nextVC, animated: true)
@@ -96,17 +96,16 @@ extension MemoCheckVerDetailVC: UITableViewDataSource, UITableViewDelegate {
             let itemToDelete = vm.checkListItems[indexPath.row]
 
             // UseCase를 통한 삭제
-            if let result = vm.deleteCheckListUsingUseCase(itemToDelete) {
-                switch result {
-                case .success:
-                    vm.fetchCheckListUsingUseCase { [weak self] in
-                        DispatchQueue.main.async {
-                            self?.tableView.deleteRows(at: [indexPath], with: .automatic)
-                        }
+            let result = vm.deleteCheckListUsingUseCase(itemToDelete)
+            switch result {
+            case .success:
+                vm.fetchCheckListUsingUseCase { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.tableView.deleteRows(at: [indexPath], with: .automatic)
                     }
-                case .failure(let error):
-                    print("삭제 실패: \(error)")
                 }
+            case .failure(let error):
+                print("삭제 실패: \(error)")
             }
         }
     }

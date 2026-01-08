@@ -8,8 +8,8 @@
 import UIKit
 
 class EditMemoCheckVer_WarningVC: UIViewController {
-    
-    var vm = EditMemoCheckVer_WarningVM()
+
+    var vm: EditMemoCheckVer_WarningVM!
     @IBOutlet weak var subView: UIView!
     @IBOutlet weak var mentLabel: UILabel!
     @IBOutlet weak var textField: UITextField!
@@ -17,7 +17,6 @@ class EditMemoCheckVer_WarningVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        DIContainer.shared.injectEditMemoCheckVer_WarningVM(vm)
         configure()
 
     }
@@ -32,14 +31,13 @@ class EditMemoCheckVer_WarningVC: UIViewController {
             return
         }
         // UseCase를 통한 체크리스트 항목 저장
-        if let result = vm.saveCheckListUsingUseCase(title: title, name: name, isComplete: false) {
-            switch result {
-            case .success:
-                vm.delegate?.didSaveMemoItem()
-                dismiss(animated: true, completion: nil)
-            case .failure:
-                break
-            }
+        let result = vm.saveCheckListUsingUseCase(title: title, name: name, isComplete: false)
+        switch result {
+        case .success:
+            vm.delegate?.didSaveMemoItem()
+            dismiss(animated: true, completion: nil)
+        case .failure:
+            break
         }
     }
  
