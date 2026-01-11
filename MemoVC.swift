@@ -19,7 +19,7 @@ class MemoVC: UIViewController {
 
     var vm: MemoVM!
     @IBOutlet weak var tableView: UITableView!
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         // Storyboard에서 직접 로드된 경우 VM이 nil일 수 있으므로 fallback
@@ -32,7 +32,55 @@ class MemoVC: UIViewController {
         vm.fetchAllDataUsingUseCase { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()
+                self?.updateEmptyState()
             }
+        }
+    }
+
+    // MARK: - Empty State
+    private func createEmptyStateView() -> UIView {
+        let containerView = UIView()
+
+        // 아이콘
+        let iconImageView = UIImageView()
+        iconImageView.image = UIImage(systemName: "doc.text")
+        iconImageView.tintColor = .gray
+        iconImageView.contentMode = .scaleAspectFit
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+
+        // 텍스트 라벨
+        let messageLabel = UILabel()
+        messageLabel.text = "메모가 없습니다.\n상단의 버튼을 눌러 추가해보세요."
+        messageLabel.textColor = .gray
+        messageLabel.textAlignment = .center
+        messageLabel.numberOfLines = 2
+        messageLabel.font = UIFont.systemFont(ofSize: 16)
+        messageLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        containerView.addSubview(iconImageView)
+        containerView.addSubview(messageLabel)
+
+        NSLayoutConstraint.activate([
+            // 아이콘: 화면 중앙에서 40pt 위
+            iconImageView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor, constant: -40),
+            iconImageView.widthAnchor.constraint(equalToConstant: 80),
+            iconImageView.heightAnchor.constraint(equalToConstant: 80),
+
+            // 텍스트: 아이콘 아래 20pt, 좌우 여백 20pt
+            messageLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 20),
+            messageLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
+            messageLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20)
+        ])
+
+        return containerView
+    }
+
+    private func updateEmptyState() {
+        if vm.groupedItems.isEmpty {
+            tableView.backgroundView = createEmptyStateView()
+        } else {
+            tableView.backgroundView = nil
         }
     }
     
@@ -59,6 +107,7 @@ class MemoVC: UIViewController {
         vm.fetchAllDataUsingUseCase { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()
+                self?.updateEmptyState()
             }
         }
     }
@@ -125,6 +174,7 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
                     vm.fetchAllDataUsingUseCase { [weak self] in
                         DispatchQueue.main.async {
                             self?.tableView.deleteRows(at: [indexPath], with: .automatic)
+                            self?.updateEmptyState()
                         }
                     }
                 case .failure(let error):
@@ -139,6 +189,7 @@ extension MemoVC: UITableViewDataSource , UITableViewDelegate {
                         vm.fetchAllDataUsingUseCase { [weak self] in
                             DispatchQueue.main.async {
                                 self?.tableView.deleteRows(at: [indexPath], with: .automatic)
+                                self?.updateEmptyState()
                             }
                         }
                     case .failure(let error):
@@ -168,6 +219,7 @@ extension MemoVC: AddCheckVerMemoDelegate {
         vm.fetchAllDataUsingUseCase { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()
+                self?.updateEmptyState()
             }
         }
     }
@@ -178,6 +230,7 @@ extension MemoVC: AddDefaultVerMemoDelegate {
         vm.fetchAllDataUsingUseCase { [weak self] in
             DispatchQueue.main.async {
                 self?.tableView.reloadData()
+                self?.updateEmptyState()
             }
         }
     }
