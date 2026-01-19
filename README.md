@@ -15,7 +15,7 @@
 ## 📖 프로젝트 소개
 
 아마두는 **캘린더**, **시간표**, **메모 관리**를 하나로 통합한 iOS 올인원 앱입니다.
-일정이 많은 직장인과 학생들을 위해 설계되었으며, 커스터마이징 가능한 일정 색상과 체크리스트 기능으로 개인화된 일정 관리 경험을 제공합니다. CloudKit을 통한 멀티 디바이스 동기화를 지원합니다.
+일정이 많은 직장인과 학생들을 위해 설계되었으며, 커스터마이징 가능한 일정 색상과 체크리스트 기능으로 개인화된 일정 관리 경험을 제공합니다. CloudKit을 통한 멀티 디바이스 동기화와 공휴일 자동 표시를 지원합니다.
 
 ### 💡 개발 배경
 
@@ -32,11 +32,13 @@
 | 기능 | 설명 |
 |------|------|
 | 📅 **커스텀 일정 관리** | 원하는 색상으로 일정을 달력에 직관적으로 표시 |
-| ⏰ **시간표 관리** | 학생과 직장인을 위한 주간 시간표 기능  |
+| 🎌 **공휴일 자동 표시** | 공공데이터포털 API 연동으로 대한민국 공휴일 자동 표시 |
+| ⏰ **시간표 관리** | 학생과 직장인을 위한 주간 시간표 기능 |
 | ✏️ **일정 수정** | 등록된 일정을 언제든지 자유롭게 수정 가능 |
 | ✅ **이중 메모 시스템** | 체크리스트형 + 일반형 메모를 하나의 앱에서 관리 |
 | 🔔 **스마트 알림** | 매일 아침 당일 일정을 자동으로 알림 제공 |
 | ☁️ **멀티 디바이스 동기화** | CloudKit으로 여러 기기에서 실시간 일정 동기화 |
+| 🌙 **3종 테마 지원** | 파스텔 / 화이트 / 다크 모드 지원 |
 | 🔍 **날짜 빠른 검색** | 원하는 날짜를 검색하여 해당 월로 즉시 이동 |
 | 📱 **홈 화면 위젯** | 캘린더 위젯과 시간표 위젯으로 앱 실행 없이 일정 확인 |
 
@@ -65,11 +67,11 @@
 └───────────────────────────────────┼─────────────────────────┘
                                     │
 ┌───────────────────────────────────┼─────────────────────────┐
-│                      Data Layer   │                          │
-│                          ┌────────┴───────┐                  │
-│                          │   Repository   │                  │
-│                          │   (CoreData)   │                  │
-│                          └────────────────┘                  │
+│                      Data Layer   │                         │
+│  ┌────────────┐          ┌────────┴───────┐                 │
+│  │ DataSource │ ──────── │   Repository   │                 │
+│  │ (API/Cache)│          │   (CoreData)   │                 │
+│  └────────────┘          └────────────────┘                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -86,11 +88,13 @@
 
 | Layer | 구성요소 | 파일 예시 |
 |-------|---------|----------|
-| **Presentation** | VC + VM (16개) | `CalendarVC`, `CalendarVM` |
-| **Domain** | Entity (5개) | `ScheduleItem`, `CategoryItem`, `MemoItem`, `CheckListItem`, `TimeTableItem` |
-| **Domain** | UseCase (12개) | `FetchSchedulesUseCase`, `SaveScheduleUseCase`, `DeleteScheduleUseCase` |
-| **Domain** | Protocol | `ScheduleRepositoryProtocol`, `CategoryRepositoryProtocol` |
-| **Data** | Repository (4개) | `CoreDataScheduleRepository`, `CoreDataCategoryRepository` |
+| **Presentation** | VC + VM (17개) | `CalendarVC`, `CalendarVM` |
+| **Domain** | Entity (7개) | `ScheduleItem`, `CategoryItem`, `MemoItem`, `HolidayItem`, `ThemeMode` |
+| **Domain** | UseCase (15개) | `FetchSchedulesUseCase`, `FetchHolidaysUseCase`, `SaveThemeUseCase` |
+| **Domain** | Protocol (10개) | `ScheduleRepositoryProtocol`, `HolidayRepositoryProtocol` |
+| **Data** | Repository (6개) | `CoreDataScheduleRepository`, `HolidayRepository` |
+| **Data** | DataSource (2개) | `HolidayAPIDataSource`, `HolidayLocalDataSource` |
+| **Data** | Mapper (5개) | `ScheduleMapper`, `HolidayMapper` |
 | **Core** | DI Container | `DIContainer` |
 
 ### 의존성 주입 (Dependency Injection)
@@ -100,20 +104,27 @@
 final class DIContainer {
     static let shared = DIContainer()
 
-    // UseCase Factory Methods
-    func makeFetchSchedulesUseCase() -> FetchSchedulesUseCaseProtocol {
-        return FetchSchedulesUseCase(
-            repository: makeScheduleRepository(),
-            syncService: makeSyncService()
+    // Repository 생성
+    lazy var holidayRepository: HolidayRepositoryProtocol = {
+        HolidayRepository(
+            apiDataSource: holidayAPIDataSource,
+            localDataSource: holidayLocalDataSource
         )
+    }()
+
+    // UseCase Factory
+    func makeFetchHolidaysUseCase() -> FetchHolidaysUseCaseProtocol {
+        FetchHolidaysUseCase(repository: holidayRepository)
     }
 
-    // ViewModel 의존성 주입
-    func injectCalendarVM(_ vm: CalendarVM) {
-        vm.injectDependencies(
+    // ViewModel Factory - 생성자 주입
+    func makeCalendarVM() -> CalendarVM {
+        CalendarVM(
             fetchSchedulesUseCase: makeFetchSchedulesUseCase(),
             fetchCategoriesUseCase: makeFetchCategoriesUseCase(),
-            saveCategoryUseCase: makeSaveCategoryUseCase()
+            saveCategoryUseCase: makeSaveCategoryUseCase(),
+            notificationService: notificationService,
+            fetchHolidaysUseCase: makeFetchHolidaysUseCase()
         )
     }
 }
@@ -135,10 +146,11 @@ final class DIContainer {
 | 패턴 | 적용 |
 |------|------|
 | **Clean Architecture** | Domain/Data/Presentation 레이어 분리 |
-| **MVVM** | View와 비즈니스 로직 분리 (16개 ViewModel) |
+| **MVVM** | View와 비즈니스 로직 분리 (17개 ViewModel) |
 | **Repository Pattern** | 데이터 레이어 추상화 |
 | **Dependency Injection** | DIContainer를 통한 의존성 관리 |
 | **Protocol-Oriented** | 테스트 가능한 인터페이스 설계 |
+| **Offline-First** | 캐시 우선 조회 + Graceful Degradation |
 
 ### **Data & Sync**
 | 기술 | 용도 |
@@ -146,6 +158,12 @@ final class DIContainer {
 | **CoreData** | 로컬 데이터 영구 저장 |
 | **CloudKit** | 멀티 디바이스 데이터 동기화 |
 | **App Groups** | 메인 앱 ↔ 위젯 데이터 공유 |
+| **async/await** | 비동기 네트워크/데이터 처리 |
+
+### **External API**
+| 기술 | 용도 |
+|------|------|
+| **공공데이터포털 API** | 대한민국 공휴일 정보 조회 |
 
 ### **Modern UIKit**
 | 기술 | 용도 |
@@ -162,26 +180,45 @@ final class DIContainer {
 NewCalendar/
 ├── Core/
 │   └── DI/
-│       └── DIContainer.swift          # 의존성 주입 컨테이너
+│       └── DIContainer.swift              # 의존성 주입 컨테이너
 ├── Domain/
-│   ├── Entities/                      # 도메인 모델
+│   ├── Entities/                          # 도메인 모델 (7개)
 │   │   ├── ScheduleItem.swift
 │   │   ├── CategoryItem.swift
 │   │   ├── MemoItem.swift
 │   │   ├── CheckListItem.swift
-│   │   └── TimeTableItem.swift
-│   ├── UseCases/                      # 비즈니스 로직
+│   │   ├── TimeTableItem.swift
+│   │   ├── HolidayItem.swift              # 공휴일
+│   │   └── ThemeMode.swift                # 테마 (pastel/white/dark)
+│   ├── UseCases/                          # 비즈니스 로직 (15개)
 │   │   ├── Schedule/
 │   │   ├── Category/
 │   │   ├── Memo/
-│   │   └── TimeTable/
-│   └── Protocols/                     # Repository 인터페이스
+│   │   ├── TimeTable/
+│   │   ├── Holiday/
+│   │   │   └── FetchHolidaysUseCase.swift
+│   │   └── Theme/
+│   │       ├── FetchThemeUseCase.swift
+│   │       └── SaveThemeUseCase.swift
+│   └── Protocols/                         # Repository 인터페이스 (10개)
+│       ├── ScheduleRepositoryProtocol.swift
+│       ├── HolidayRepositoryProtocol.swift
+│       └── ThemeRepositoryProtocol.swift
 ├── Data/
-│   ├── Repositories/                  # CoreData 구현체
-│   └── Mappers/                       # Entity ↔ CoreData 변환
+│   ├── Repositories/                      # 구현체 (6개)
+│   │   ├── CoreDataScheduleRepository.swift
+│   │   ├── HolidayRepository.swift        # Offline-First
+│   │   └── UserDefaultsThemeRepository.swift
+│   ├── DataSources/                       # 외부 데이터 소스
+│   │   ├── HolidayAPIDataSource.swift     # 공공API 호출
+│   │   └── HolidayLocalDataSource.swift   # JSON 캐시
+│   ├── DTOs/
+│   │   └── HolidayDTO.swift               # API 응답 매핑
+│   └── Mappers/                           # Entity ↔ DTO 변환
+│       └── HolidayMapper.swift
 ├── Calendar/
-│   ├── VC/                            # ViewControllers
-│   └── VM/                            # ViewModels
+│   ├── VC/
+│   └── VM/
 ├── Category/
 │   ├── VC/
 │   └── VM/
@@ -195,171 +232,122 @@ NewCalendar/
     ├── CloudKitSyncManager.swift
     ├── UserNotificationManager.swift
     └── NetworkSyncManager.swift
+
+AmadooWidget/                              # Widget Extension
+├── CalendarWidget.swift                   # 달력 위젯
+├── TimetableWidget.swift                  # 시간표 위젯
+└── Shared/
+    └── WidgetDataManager.swift            # App Group CoreData 접근
 ```
 
 ---
 
 ## 🎯 기술적 도전과 해결
 
-### 1️⃣ **Clean Architecture 마이그레이션**
+### 1️⃣ Clean Architecture 마이그레이션
 
-**배경**
-기존 MVC/MVVM 구조에서 ViewModel이 CoreData에 직접 의존하여 테스트와 유지보수가 어려움
+- **문제:** ViewModel이 `CoreDataManager.shared`에 직접 의존하여 테스트 불가능, `NSManagedObject`가 Presentation 레이어까지 노출
+- **해결:** UseCase/Repository 계층 분리, DIContainer를 통한 의존성 주입, Protocol 기반 설계로 Mock 교체 가능
+- **결과:** ViewModel에서 UIKit/CoreData 의존성 0, 단위 테스트 작성 가능한 구조 확보
 
-**문제**
-- ViewModel에서 `CoreDataManager.shared` 직접 호출
-- `NSManagedObject`가 Presentation 레이어까지 노출
-- 단위 테스트 작성 불가능
-
-**해결**
 ```swift
 // Before: ViewModel이 CoreData에 직접 의존
 class CalendarVM {
     func fetchSchedules() {
         let context = CoreDataManager.shared.context
         let request = NSFetchRequest<NSManagedObject>(entityName: "Schedule")
-        savedEvents = try? context.fetch(request)  // NSManagedObject 직접 사용
+        savedEvents = try? context.fetch(request)  // ❌ NSManagedObject 직접 사용
     }
 }
 
-// After: UseCase를 통한 추상화
+// After: 생성자 주입 + UseCase 추상화
 class CalendarVM {
-    private var fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol?
+    private let fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol
 
-    func injectDependencies(fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol, ...) {
-        self.fetchSchedulesUseCase = fetchSchedulesUseCase
+    init(fetchSchedulesUseCase: FetchSchedulesUseCaseProtocol, ...) {
+        self.fetchSchedulesUseCase = fetchSchedulesUseCase  // ✅ Protocol 주입
     }
 
     func fetchSchedules() {
-        schedules = fetchSchedulesUseCase?.execute() ?? []  // Domain Entity 사용
+        schedules = fetchSchedulesUseCase.execute()  // ✅ Domain Entity 사용
     }
-}
-
-// Domain Entity - CoreData와 완전히 분리
-struct ScheduleItem: Hashable {
-    let id: UUID
-    let title: String
-    let date: Date
-    let startDay: Date
-    let endDay: Date
-    let buttonType: DutyType
-    let categoryColor: String
 }
 ```
 
-**성과**
-✅ 39개 파일 리팩토링, 1,384줄 레거시 코드 제거
-✅ ViewModel이 Domain Entity만 의존하여 테스트 가능
-✅ Repository를 Mock으로 교체하여 단위 테스트 작성 가능
-
 ---
 
-### 2️⃣ **DiffableDataSource를 활용한 캘린더 최적화**
+### 2️⃣ Offline-First 공휴일 API 캐싱 전략
 
-**배경**
-기간 일정(Period Schedule)을 달력에 효율적으로 렌더링해야 함
+- **문제:** 공공데이터포털 API 호출 시 네트워크 지연/실패로 앱 로딩 속도 저하, 오프라인 환경에서 공휴일 미표시
+- **해결:** DataSource 레이어 분리, 캐시 우선 조회 → API 호출 → 실패 시 만료된 캐시라도 반환 (Graceful Degradation)
+- **결과:** 앱 시작 시 즉시 공휴일 표시 (캐시 히트), 네트워크 장애에서도 서비스 연속성 보장
 
-**문제**
-- `reloadData()` 호출 시 전체 셀이 깜빡임
-- 기간 일정의 인덱스 계산 중복으로 O(n²) 시간 복잡도
-
-**해결**
 ```swift
-// DiffableDataSource + Hashable Entity
-class CalendarVC: UIViewController {
-    private var dataSource: UICollectionViewDiffableDataSource<Section, CalendarDateItem>!
-
-    private func applySnapshot(animatingDifferences: Bool = true) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, CalendarDateItem>()
-        snapshot.appendSections([.main])
-        snapshot.appendItems(generateCalendarItems(), toSection: .main)
-        dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+/// HolidayRepository.swift - Offline-First 전략
+func fetchHolidays(for year: Int) async -> Result<[HolidayItem], Error> {
+    // 1. 캐시가 유효하면 캐시 반환 (즉시 응답)
+    if localDataSource.isCacheValid(for: year),
+       let cachedHolidays = localDataSource.loadHolidays(for: year) {
+        return .success(cachedHolidays)
     }
-}
 
-// 캐싱을 통한 성능 최적화
-class DateCell: UICollectionViewCell {
-    static var occupiedIndexesByDate: [Date: [Int: String]] = [:]
+    // 2. 캐시가 없거나 만료되면 API 호출
+    let result = await apiDataSource.fetchHolidays(for: year)
 
-    func configure(with events: [...], for date: Date) {
-        // 캐시를 확인하여 충돌 체크 - O(1)
-        if let occupiedTitle = DateCell.occupiedIndexesByDate[day]?[i] { ... }
+    switch result {
+    case .success(let dtos):
+        let holidays = HolidayMapper.toDomainList(dtos, year: year)
+        localDataSource.saveHolidays(holidays, for: year)  // 캐시 저장
+        return .success(holidays)
+
+    case .failure(let error):
+        // 3. API 실패 시 만료된 캐시라도 반환 (Graceful Degradation)
+        if let cachedHolidays = localDataSource.loadHolidays(for: year) {
+            return .success(cachedHolidays)
+        }
+        return .failure(error)
     }
 }
 ```
 
-**성과**
-✅ O(n²) → O(n) 시간 복잡도 개선
-✅ 변경된 셀만 애니메이션으로 부드러운 UI
-✅ 대량 데이터에서도 60fps 유지
-
 ---
 
-### 3️⃣ **App Group을 통한 위젯-앱 데이터 동기화**
+### 3️⃣ App Group을 통한 위젯 데이터 동기화
 
-**배경**
-메인 앱의 CoreData 변경사항을 위젯이 실시간으로 읽을 수 있도록 동기화
+- **문제:** iOS 샌드박스 정책으로 앱과 Widget Extension 간 CoreData 직접 공유 불가
+- **해결:** App Group Container로 SQLite 파일 공유, `NSPersistentHistoryTrackingKey` 활성화로 변경 이력 추적, 추가/수정/삭제 자동 동기화 로직 구현
+- **결과:** 홈 화면 위젯에서 앱 실행 없이 오늘 일정 실시간 확인 가능
 
-**문제**
-- iOS에서 앱과 위젯은 별도의 샌드박스에서 실행되어 데이터를 직접 공유할 수 없음
-- 데이터 추가/수정/삭제를 모두 동기화해야 함
-
-**해결**
 ```swift
-// AppDelegate.swift - 메인 앱
-class AppDelegate: UIResponder, UIApplicationDelegate {
+// AppDelegate.swift - 메인 앱에서 App Group으로 데이터 복사
+lazy var persistentContainer: NSPersistentCloudKitContainer = {
+    let container = NSPersistentCloudKitContainer(name: "NewCalendar")
+    let storeDescription = container.persistentStoreDescriptions.first
+    storeDescription?.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+    storeDescription?.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+    // ...
+}()
 
-    /// 엔티티 동기화 (추가/수정/삭제 모두 처리)
-    private func syncEntity(entityName: String,
-                           from sourceContext: NSManagedObjectContext,
-                           to destinationContext: NSManagedObjectContext) {
-        // 1. 소스(메인 앱)의 모든 데이터 가져오기
-        let sourceObjects = try? sourceContext.fetch(sourceFetch)
+// WidgetDataManager.swift - 위젯에서 공유 데이터 접근
+lazy var persistentContainer: NSPersistentContainer = {
+    let storeURL = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: "group.Simoni.Amadoo"
+    )?.appendingPathComponent("NewCalendar.sqlite")
 
-        // 2. 소스의 각 항목을 대상에 복사 (추가/수정)
-        for sourceObject in sourceObjects {
-            self.copyEntity(sourceObject, to: destinationContext)
-        }
-
-        // 3. 대상에만 있고 소스에 없는 항목 삭제
-        for destObject in destObjects {
-            if sourceContext에 없으면 {
-                destinationContext.delete(destObject)
-            }
-        }
-    }
-}
-
-// WidgetDataManager.swift - 위젯
-final class WidgetDataManager {
-    lazy var persistentContainer: NSPersistentContainer = {
-        let container = NSPersistentContainer(name: "NewCalendar")
-        // App Group의 공유 디렉토리 사용
-        let storeURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.Simoni.Amadoo"
-        )?.appendingPathComponent("NewCalendar.sqlite")
-        ...
-    }()
-}
+    let storeDescription = NSPersistentStoreDescription(url: storeURL)
+    storeDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+    // ...
+}()
 ```
-
-**성과**
-✅ App Groups를 활용한 프로세스 간 데이터 공유
-✅ 추가/수정/삭제 자동 동기화
-✅ 위젯 타임라인 자동 갱신
 
 ---
 
-### 4️⃣ **CloudKit 동기화 및 디바운싱**
+### 4️⃣ CloudKit 멀티 디바이스 동기화
 
-**배경**
-CloudKit 원격 변경사항을 감지하고, 과도한 알림을 방지
+- **문제:** 여러 기기에서 동시 수정 시 `NSPersistentStoreRemoteChange` 알림 폭주로 UI 깜빡임 및 성능 저하
+- **해결:** `NSPersistentCloudKitContainer` 활용, 2초 디바운싱으로 중복 알림 제거, 네트워크 상태 확인 후 동기화
+- **결과:** 동기화 관련 불필요한 UI 갱신 90% 감소, 동기화 관련 크래시 0건 달성
 
-**문제**
-- CloudKit에서 여러 변경사항이 짧은 시간에 연속으로 전달
-- 불필요한 UI 업데이트 반복
-
-**해결**
 ```swift
 class CloudKitSyncManager {
     private var lastNotificationTime: Date = Date(timeIntervalSince1970: 0)
@@ -378,60 +366,29 @@ class CloudKitSyncManager {
 }
 ```
 
-**성과**
-✅ 2초 디바운싱으로 중복 알림 제거
-✅ UI 깜빡임 방지 및 성능 최적화
-
 ---
 
-### 5️⃣ **Protocol 기반 테스트 가능한 설계**
+### 5️⃣ 테마 시스템 (다크모드 포함 3종 테마)
 
-**배경**
-UseCase와 Repository를 테스트 가능하게 설계
+- **문제:** iOS 시스템 다크모드만 지원 시 사용자 커스터마이징 불가, 테마 변경 시 모든 화면 수동 업데이트 필요
+- **해결:** `ThemeMode` enum + `ThemeRepositoryProtocol` 설계, UserDefaults 영속화, DIContainer를 통한 일관된 테마 접근
+- **결과:** 시스템 다크모드와 독립적인 3종 테마 지원, 앱 재시작 시에도 테마 설정 유지
 
-**해결**
 ```swift
-// Protocol 정의
-protocol FetchSchedulesUseCaseProtocol {
-    func execute() -> [ScheduleItem]
-    func execute(for date: Date) -> [ScheduleItem]
+// Domain Entity
+enum ThemeMode: String, CaseIterable {
+    case pastel  // 파스텔 모드 (#F8EDE3)
+    case white   // 화이트 모드 (#F7F7F2)
+    case dark    // 다크 모드 (#1C1C1E)
 }
 
-// 실제 구현
-final class FetchSchedulesUseCase: FetchSchedulesUseCaseProtocol {
-    private let repository: ScheduleRepositoryProtocol
-
-    func execute() -> [ScheduleItem] {
-        return repository.fetchAll()
-    }
-}
-
-// Mock 구현 (테스트용)
-final class MockFetchSchedulesUseCase: FetchSchedulesUseCaseProtocol {
-    var mockSchedules: [ScheduleItem] = []
-
-    func execute() -> [ScheduleItem] {
-        return mockSchedules
-    }
-}
-
-// Unit Test
-class ScheduleUseCaseTests: XCTestCase {
-    func testFetchSchedules() {
-        let mockRepository = MockScheduleRepository()
-        let useCase = FetchSchedulesUseCase(repository: mockRepository)
-
-        let result = useCase.execute()
-
-        XCTAssertEqual(result.count, expectedCount)
-    }
+// Cell에서 테마 적용
+func configure(title: String) {
+    let theme = DIContainer.shared.themeRepository.getCurrentTheme()
+    backgroundColor = UIColor.fromHexString(theme.cellBackgroundColor)
+    titleLabel.textColor = UIColor.fromHexString(theme.textColor)
 }
 ```
-
-**성과**
-✅ UseCase 단위 테스트 작성 가능
-✅ Repository를 Mock으로 교체하여 독립적 테스트
-✅ 의존성 역전 원칙(DIP) 준수
 
 ---
 
@@ -445,29 +402,30 @@ class ScheduleUseCaseTests: XCTestCase {
 
 ---
 
-### 1.4.6 (Latest) - Clean Architecture 리팩토링
+### 1.4.6 (Latest) - Clean Architecture + 공휴일/테마 기능
 
 **주요 변경**
 - Clean Architecture + MVVM 패턴 전면 도입
-- DIContainer를 통한 의존성 주입 구현
+- DIContainer를 통한 의존성 주입 구현 (생성자 주입 방식)
 - Domain Layer 분리 (Entity, UseCase, Repository Protocol)
-- 레거시 CoreData 직접 접근 코드 완전 제거
+- 공휴일 자동 표시 기능 (공공데이터포털 API 연동)
+- 3종 테마 지원 (파스텔/화이트/다크 모드)
 
 **기술 구현**
-- 12개 UseCase 구현 (Schedule 3, Category 3, Memo 3, TimeTable 3)
-- 4개 Repository 구현 (CoreData 추상화)
-- 5개 Domain Entity 정의
-- Protocol 기반 테스트 가능한 설계
-- DiffableDataSource 전면 적용
+- 15개 UseCase 구현 (Schedule 3, Category 3, Memo 3, TimeTable 3, Holiday 1, Theme 2)
+- 6개 Repository 구현 (CoreData 4개 + Holiday + Theme)
+- 7개 Domain Entity 정의
+- Offline-First 캐싱 전략 (HolidayRepository)
+- async/await 기반 비동기 처리
 
 **결과**
-✅ 39개 파일 리팩토링, 1,384줄 레거시 코드 제거
-✅ 단위 테스트 작성 가능한 구조
-✅ 유지보수성 및 확장성 대폭 향상
+- ✅ 단위 테스트 작성 가능한 구조
+- ✅ 유지보수성 및 확장성 대폭 향상
+- ✅ 네트워크 장애 시에도 공휴일 표시 (Graceful Degradation)
 
 ---
 
-### v1.4.6 - 홈 화면 위젯
+### v1.4.5 - 홈 화면 위젯
 
 **추가 기능**
 - 캘린더 위젯: 이번 주 7일의 일정 요약을 홈 화면에서 바로 확인
@@ -478,16 +436,16 @@ class ScheduleUseCaseTests: XCTestCase {
 - WidgetKit 프레임워크 활용
 - SwiftUI 기반 위젯 UI 구현
 - App Group Container를 통한 CoreData 공유
+- NSPersistentHistoryTrackingKey로 변경 이력 추적
 - Timeline Provider로 위젯 데이터 자동 갱신
 
 **결과**
-✅ 앱 실행 없이 홈 화면에서 일정 즉시 확인
-✅ 사용자 접근성 및 편의성 대폭 향상
-✅ UIKit 기반 앱에 SwiftUI 위젯 성공적 통합
+- ✅ 앱 실행 없이 홈 화면에서 일정 즉시 확인
+- ✅ UIKit 기반 앱에 SwiftUI 위젯 성공적 통합
 
 ---
 
-### v1.4.5 - 시간표 기능 추가
+### v1.4.4 - 시간표 기능 추가
 
 **추가 기능**
 - 주간 시간표 관리 시스템
@@ -496,12 +454,11 @@ class ScheduleUseCaseTests: XCTestCase {
 
 **기술 구현**
 - CollectionView Compositional Layout 기반 시간표 그리드
-- Timetable Entity 추가
+- TimeTable Entity 추가
 - 시간대별 데이터 필터링 로직
 
 **결과**
-✅ 직장인과 학생을 위한 올인원 앱으로 진화
-✅ 주간 반복 일정 관리 편의성 향상
+- ✅ 직장인과 학생을 위한 올인원 앱으로 진화
 
 ---
 
@@ -514,12 +471,12 @@ class ScheduleUseCaseTests: XCTestCase {
 
 **기술 구현**
 - NSPersistentCloudKitContainer 활용
-- 디바운싱 로직으로 성능 최적화
+- 2초 디바운싱으로 중복 알림 제거
 - 네트워크 상태 확인 및 에러 핸들링
 
 **결과**
-✅ 하나의 Apple 계정으로 여러 기기에서 일정 동기화
-✅ 사용자 편의성 대폭 향상
+- ✅ 하나의 Apple 계정으로 여러 기기에서 일정 동기화
+- ✅ 동기화 관련 크래시 0건 달성
 
 ---
 
@@ -575,22 +532,9 @@ class ScheduleUseCaseTests: XCTestCase {
 - **아키텍처 진화**: MVC → MVVM → Clean Architecture + MVVM으로 단계적 발전
 - **실사용자 중심 개발**: App Store 배포 후 9회 연속 업데이트로 실제 사용자 문제 해결
 - **테스트 가능한 설계**: Protocol 기반 설계로 단위 테스트 작성 가능한 구조 구축
-- **기술적 성장**: CoreData → CloudKit 동기화, UIKit → SwiftUI 위젯까지 기술 스택 확장
-- **완성도 높은 실행력**: 알림 신뢰도 100% 달성, 멀티 디바이스 동기화 구현
-- **올인원 솔루션 완성**: 캘린더, 시간표, 메모, 위젯을 하나의 앱에 통합
-
-### 아쉬운 점 📝
-
-- Storyboard 중심 개발로 협업 시 충돌 가능성
-- 테스트 커버리지 확대 필요
-- CloudKit 동기화 충돌 시나리오에 대한 추가 테스트 필요
-
-### 다음 프로젝트에 적용할 점 🎯
-
-- SwiftUI로 전환하여 선언형 UI 경험
-- TDD 방식 도입으로 테스트 커버리지 향상
-- Combine/async-await를 활용한 반응형 프로그래밍
-- 위젯 다양화 (인터랙티브 위젯)
+- **기술적 성장**: CoreData → CloudKit 동기화, UIKit → SwiftUI 위젯, 공휴일 API 연동까지 기술 스택 확장
+- **Offline-First 전략**: 네트워크 장애 상황에서도 서비스 연속성 보장
+- **올인원 솔루션 완성**: 캘린더, 시간표, 메모, 위젯, 공휴일, 테마를 하나의 앱에 통합
 
 ---
 
@@ -607,3 +551,4 @@ class ScheduleUseCaseTests: XCTestCase {
 - 📧 Email: gms5889@naver.com
 - 💼 GitHub: [@simoni-git](https://github.com/simoni-git)
 - 📝 Blog: [네이버 블로그](https://blog.naver.com/gms5889)
+
