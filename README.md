@@ -19,7 +19,7 @@
 
 ### 💡 개발 배경
 
-- **v1.0 → v1.4.6 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 7회 업데이트
+- **v1.0 → v1.4.7 지속적 진화**: 초기 학습용 프로젝트를 실사용자 피드백 기반으로 8회 업데이트
 - **Clean Architecture 도입**: 유지보수성과 테스트 용이성을 위한 아키텍처 전면 리팩토링
 - **실사용자 피드백 기반 개선**: App Store 배포 후 사용자 요구사항을 반영한 지속적인 기능 개선
 - **기술 스택 업그레이드**: MVC → MVVM → Clean Architecture + MVVM
@@ -402,7 +402,7 @@ func configure(title: String) {
 
 ---
 
-### 1.4.6 (Latest) - Clean Architecture + 공휴일/테마 기능
+### 1.4.7 (Latest) - Clean Architecture + 공휴일/테마 기능
 
 **주요 변경**
 - Clean Architecture + MVVM 패턴 전면 도입
